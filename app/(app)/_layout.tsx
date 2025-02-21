@@ -1,8 +1,8 @@
 import { useSession } from "@/context";
-import { Link, Redirect } from "expo-router";
-import { Text, View } from "react-native";
+import { Redirect, Stack } from "expo-router";
+import { Text } from "react-native";
 
-export default function Index() {
+export default function RootLayout() {
   const { user, isLoading } = useSession();
 
   if (isLoading) {
@@ -13,5 +13,5 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  return <Redirect href="/(app)" />;
+  return <Stack screenOptions={{ headerShown: false }} />;
 }

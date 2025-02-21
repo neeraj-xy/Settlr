@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.xyz.settlr"
+      "package": "com.xyz.settlr",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -33,7 +34,11 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-build-properties",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

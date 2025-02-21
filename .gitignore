@@ -31,7 +31,6 @@ yarn-error.*
 
 # local env files
 *.env
-*.env.example
 *.env.local
 *.env.staging
 
@@ -39,3 +38,6 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# Ignore Firebase configuration files
+google-services.json
