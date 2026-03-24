@@ -1,35 +1,150 @@
 import { SessionProvider } from "@/context";
-import { Slot } from "expo-router";
+import { AppThemeProvider, useThemeContext } from "@/context/ThemeContext";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Slot, SplashScreen } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  PaperProvider,
+  MD3DarkTheme,
+  MD3LightTheme,
+  adaptNavigationTheme,
+  configureFonts,
+  Snackbar,
+  Text,
+} from "react-native-paper";
+import { Colors } from "@/constants/Colors";
+import merge from "deepmerge";
+import {
+  DarkTheme as NavigationDarkTheme,
+  DefaultTheme as NavigationDefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
+import { useFonts } from "expo-font";
+import { KeyboardProvider } from "react-native-keyboard-controller";
+import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 
-/**
- * Root Layout is the highest-level layout in the app, wrapping all other layouts and screens.
- * It provides:
- * 1. Global authentication context via SessionProvider
- * 2. Gesture handling support for the entire app
- * 3. Global styles and configurations
- *
- * This layout affects every screen in the app, including both authenticated
- * and unauthenticated routes.
- */
-export default function Root() {
-  // Set up the auth context and render our layout inside of it.
+// Prevent the splash screen from auto-hiding before asset loading is complete.
+SplashScreen.preventAutoHideAsync();
+
+function RootNavigation() {
+  const { colorScheme, toastMessage, setToastMessage } = useThemeContext();
+  const [isReady, setIsReady] = useState(false);
+
+  // Load custom fonts
+  const [fontsLoaded] = useFonts({
+    MadimiOne: require("../assets/fonts/MadimiOne-Regular.ttf"),
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      setIsReady(true);
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!isReady) return null; // Prevent rendering until everything is loaded
+
+  // Adapt navigation themes
+  const { LightTheme, DarkTheme } = adaptNavigationTheme({
+    reactNavigationLight: NavigationDefaultTheme,
+    reactNavigationDark: NavigationDarkTheme,
+  });
+
+  // Custom Paper themes
+  const customDarkTheme = { ...MD3DarkTheme, colors: Colors.dark };
+  const customLightTheme = { ...MD3LightTheme, colors: Colors.light };
+
+  // Merge Paper and Navigation themes
+  const CombinedDefaultTheme = merge(LightTheme, customLightTheme);
+  const CombinedDarkTheme = merge(DarkTheme, customDarkTheme);
+  const combinedTheme =
+    colorScheme === "dark" ? CombinedDarkTheme : CombinedDefaultTheme;
+
+  // Configure fonts with fallback fontWeight
+  const baseFonts = configureFonts({
+    config: {
+      fontFamily: "MadimiOne",
+    },
+    isV3: true,
+  });
+
+  const fonts = {
+    regular: {
+      ...baseFonts.bodyMedium,
+      fontWeight: baseFonts.bodyMedium.fontWeight ?? "400",
+    },
+    medium: {
+      ...baseFonts.titleMedium,
+      fontWeight: baseFonts.titleMedium.fontWeight ?? "500",
+    },
+    bold: {
+      ...baseFonts.headlineMedium,
+      fontWeight: baseFonts.headlineMedium.fontWeight ?? "700",
+    },
+    heavy: {
+      ...baseFonts.displayMedium,
+      fontWeight: baseFonts.displayMedium.fontWeight ?? "900",
+    },
+  };
+
+  const configuredFontTheme = {
+    ...combinedTheme,
+    baseFonts,
+  };
+
+  const configuredPaperFontTheme = {
+    ...combinedTheme,
+    fonts,
+  };
+
   return (
-    <SessionProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       {/* 
-        GestureHandlerRootView is required for:
-        - Drawer navigation gestures
-        - Swipe gestures
-        - Other gesture-based interactions
-        Must wrap the entire app to function properly
+        Slot renders child routes dynamically
+        This includes both (app) and (auth) group routes
       */}
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        {/* 
-          Slot renders child routes dynamically
-          This includes both (app) and (auth) group routes
-        */}
-        <Slot />
-      </GestureHandlerRootView>
-    </SessionProvider>
+      <PaperProvider theme={configuredFontTheme}>
+        <ThemeProvider value={configuredPaperFontTheme}>
+          <KeyboardProvider>
+            <SafeAreaProvider style={{ flex: 1 }}>
+              <Slot />
+              <GlobalThemeToggle />
+            </SafeAreaProvider>
+          </KeyboardProvider>
+        </ThemeProvider>
+        
+        <Snackbar
+          visible={!!toastMessage}
+          onDismiss={() => setToastMessage(null)}
+          duration={2000}
+          style={{
+            backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.75)",
+            borderRadius: 30,
+            alignSelf: "center",
+          }}
+        >
+          <Text style={{ color: "#fff", textAlign: "center", width: "100%" }}>
+            {toastMessage}
+          </Text>
+        </Snackbar>
+
+        <StatusBar
+          style={colorScheme === "dark" ? "light" : "dark"}
+          animated
+        />
+      </PaperProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+export default function Root() {
+  return (
+    <AppThemeProvider>
+      <SessionProvider>
+        <RootNavigation />
+      </SessionProvider>
+    </AppThemeProvider>
   );
 }

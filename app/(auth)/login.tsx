@@ -1,143 +1,154 @@
 import { router, Link } from "expo-router";
-import { Text, TextInput, View, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { useState } from "react";
 import { useSession } from "@/context";
+import { Button, TextInput, Text, useTheme, HelperText } from "react-native-paper";
+import ScreenWrapper from "@/components/ScreenWrapper";
 
 export default function Login() {
+  const theme = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  
   const { signIn } = useSession();
 
   const handleLogin = async () => {
+    setError("");
+    if (!email || !password) {
+      setError("Please fill in all fields.");
+      return;
+    }
+    setIsLoading(true);
     try {
-      return await signIn(email, password);
-    } catch (err) {
+      const resp = await signIn(email, password);
+      // If user returned successfully, redirect
+      if (resp) {
+        router.replace("/(app)");
+      } else {
+        // Since signIn handles its own catch but returns undefined
+        setError("Invalid email or password.");
+      }
+    } catch (err: any) {
       console.log("[handleLogin] ==>", err);
-      return null;
+      setError(err.message || "An error occurred during login.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSignInPress = async () => {
-    const resp = await handleLogin();
-    router.replace("/(app)");
-  };
-
   return (
-    <View style={styles.container}>
+    <ScreenWrapper scrollEnabled contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerText}>Welcome Back</Text>
-        <Text style={styles.subHeaderText}>Please sign in to continue</Text>
+        <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>Welcome Back</Text>
+        <Text variant="titleMedium" style={{ color: theme.colors.outline, marginTop: 10 }}>Please sign in to continue</Text>
       </View>
 
       <View style={styles.formContainer}>
-        <View>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            placeholder="name@mail.com"
-            value={email}
-            onChangeText={setEmail}
-            textContentType="emailAddress"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            style={styles.input}
-          />
-        </View>
+        <TextInput
+          mode="outlined"
+          label="Email"
+          placeholder="name@mail.com"
+          value={email}
+          onChangeText={(text) => { setEmail(text); setError(""); }}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={styles.input}
+          left={<TextInput.Icon icon="email-outline" />}
+          error={!!error}
+        />
 
-        <View>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            placeholder="Your password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            textContentType="password"
-            style={styles.input}
-          />
-        </View>
+        <TextInput
+          mode="outlined"
+          label="Password"
+          placeholder="Your password"
+          value={password}
+          onChangeText={(text) => { setPassword(text); setError(""); }}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          style={styles.input}
+          right={
+            <TextInput.Icon 
+              icon={showPassword ? "eye-off" : "eye"} 
+              onPress={() => setShowPassword(!showPassword)} 
+            />
+          }
+          left={<TextInput.Icon icon="lock-outline" />}
+          error={!!error}
+        />
+
+        {error ? (
+          <HelperText type="error" visible={!!error} style={styles.helperText}>
+            {error}
+          </HelperText>
+        ) : null}
       </View>
 
-      <Pressable onPress={handleSignInPress} style={styles.button}>
-        <Text style={styles.buttonText}>Sign In</Text>
-      </Pressable>
+      <Button 
+        mode="contained" 
+        onPress={handleLogin} 
+        loading={isLoading}
+        disabled={isLoading}
+        style={styles.button}
+        contentStyle={styles.buttonContent}
+      >
+        Sign In
+      </Button>
 
       <View style={styles.footerContainer}>
-        <Text style={styles.footerText}>Don't have an account?</Text>
+        <Text variant="bodyLarge" style={{ color: theme.colors.outline }}>Don't have an account?</Text>
         <Link dismissTo href="/(auth)/register" asChild>
-          <Pressable>
-            <Text style={styles.linkText}>Sign Up</Text>
+          <Pressable style={styles.linkButton}>
+            <Text variant="bodyLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Sign Up</Text>
           </Pressable>
         </Link>
       </View>
-    </View>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,
-    backgroundColor: "#f8f9fa",
   },
   headerContainer: {
-    marginBottom: 20,
+    marginBottom: 40,
     alignItems: "center",
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  subHeaderText: {
-    fontSize: 16,
-    color: "#666",
   },
   formContainer: {
     width: "100%",
-    maxWidth: 300,
+    maxWidth: 350,
     marginBottom: 20,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#444",
-    marginBottom: 5,
-  },
   input: {
-    width: "100%",
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    fontSize: 16,
-    backgroundColor: "#fff",
+    marginBottom: 12,
+  },
+  helperText: {
+    paddingHorizontal: 0,
     marginBottom: 10,
+    fontSize: 14,
   },
   button: {
-    backgroundColor: "#007bff",
-    paddingVertical: 12,
     width: "100%",
-    maxWidth: 300,
+    maxWidth: 350,
     borderRadius: 8,
-    alignItems: "center",
+    marginTop: 10,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+  buttonContent: {
+    paddingVertical: 8,
   },
   footerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 15,
+    marginTop: 35,
   },
-  footerText: {
-    color: "#666",
-  },
-  linkText: {
-    color: "#007bff",
-    fontWeight: "bold",
+  linkButton: {
     marginLeft: 5,
+    padding: 5,
   },
 });
