@@ -21,7 +21,12 @@ import {
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { useFonts } from "expo-font";
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_700Bold,
+  useFonts,
+} from "@expo-google-fonts/plus-jakarta-sans";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 
@@ -34,7 +39,9 @@ function RootNavigation() {
 
   // Load custom fonts
   const [fontsLoaded] = useFonts({
-    MadimiOne: require("../assets/fonts/MadimiOne-Regular.ttf"),
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_700Bold,
   });
 
   useEffect(() => {
@@ -65,7 +72,7 @@ function RootNavigation() {
   // Configure fonts with fallback fontWeight
   const baseFonts = configureFonts({
     config: {
-      fontFamily: "MadimiOne",
+      fontFamily: "PlusJakartaSans_400Regular",
     },
     isV3: true,
   });
@@ -89,12 +96,12 @@ function RootNavigation() {
     },
   };
 
-  const configuredFontTheme = {
+  const configuredPaperTheme = {
     ...combinedTheme,
-    baseFonts,
+    fonts: baseFonts,
   };
 
-  const configuredPaperFontTheme = {
+  const configuredNavigationTheme = {
     ...combinedTheme,
     fonts,
   };
@@ -105,8 +112,8 @@ function RootNavigation() {
         Slot renders child routes dynamically
         This includes both (app) and (auth) group routes
       */}
-      <PaperProvider theme={configuredFontTheme}>
-        <ThemeProvider value={configuredPaperFontTheme}>
+      <PaperProvider theme={configuredPaperTheme}>
+        <ThemeProvider value={configuredNavigationTheme}>
           <KeyboardProvider>
             <SafeAreaProvider style={{ flex: 1 }}>
               <Slot />
