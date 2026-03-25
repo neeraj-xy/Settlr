@@ -26,7 +26,6 @@ export default function Root() {
 
   return (
     <ScreenWrapper 
-      style={{ backgroundColor: theme.colors.background }}
       contentContainerStyle={styles.container}
     >
       {/* Welcome Section */}

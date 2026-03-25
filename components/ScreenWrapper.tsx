@@ -11,6 +11,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { MD2Theme, MD3Theme, useTheme } from "react-native-paper";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import GridBackground from "./GridBackground";
 
 type Props = ScrollViewProps & {
   children: React.ReactNode;
@@ -33,7 +34,6 @@ export default function ScreenWrapper({
   const containerStyle = [
     styles.container,
     {
-      backgroundColor: theme.colors.background,
       paddingBottom: insets.bottom,
       paddingLeft: insets.left,
       paddingRight: insets.left,
@@ -41,7 +41,8 @@ export default function ScreenWrapper({
   ];
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <GridBackground />
       {withScrollView ? (
         <KeyboardAwareScrollView
           bottomOffset={62}
@@ -57,7 +58,7 @@ export default function ScreenWrapper({
       ) : (
         <View style={[containerStyle, style]}>{children}</View>
       )}
-    </>
+    </View>
   );
 }
 

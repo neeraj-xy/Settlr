@@ -63,7 +63,7 @@ export default function Register() {
   };
 
   return (
-    <ScreenWrapper scrollEnabled contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ScreenWrapper scrollEnabled contentContainerStyle={styles.container}>
       <View style={styles.headerContainer}>
         <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>Create Account</Text>
         <Text variant="titleMedium" style={{ color: theme.colors.outline, marginTop: 10 }}>Sign up to get started</Text>
