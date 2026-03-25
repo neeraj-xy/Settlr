@@ -39,6 +39,7 @@ const app = initializeApp(firebaseConfig);
  * @type {Auth}
  */
 import { getAuth, Auth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 let auth: Auth;
 if (Platform.OS === 'web') {
