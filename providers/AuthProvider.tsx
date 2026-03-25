@@ -9,6 +9,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   updateProfile,
+  sendPasswordResetEmail,
   User,
   UserCredential,
 } from "firebase/auth";
@@ -113,6 +114,21 @@ export async function register(
     return { user: userCredential.user };
   } catch (e) {
     console.error("[error registering] ==>", e);
+    throw e;
+  }
+}
+
+/**
+ * Sends a password reset email to the given address
+ * @param {string} email - User's email address
+ * @returns {Promise<void>}
+ * @throws {Error} If sending the reset email fails
+ */
+export async function resetPassword(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (e) {
+    console.error("[error resetting password] ==>", e);
     throw e;
   }
 }

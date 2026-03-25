@@ -63,105 +63,107 @@ export default function Register() {
   };
 
   return (
-    <ScreenWrapper scrollEnabled contentContainerStyle={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>Create Account</Text>
-        <Text variant="titleMedium" style={{ color: theme.colors.outline, marginTop: 10 }}>Sign up to get started</Text>
-      </View>
+    <ScreenWrapper scrollEnabled>
+      <View style={styles.container}>
+        <View style={styles.headerContainer}>
+          <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>Create Account</Text>
+          <Text variant="titleMedium" style={{ color: theme.colors.outline, marginTop: 10 }}>Sign up to get started</Text>
+        </View>
 
-      <View style={styles.formContainer}>
-        <TextInput
-          mode="outlined"
-          label="Full Name"
-          placeholder="John Doe"
-          value={name}
-          onChangeText={(text) => { setName(text); setError(""); }}
-          autoCapitalize="words"
-          textContentType="name"
-          style={styles.input}
-          left={<TextInput.Icon icon="account-outline" />}
-          error={!!error && error.includes("name")}
-        />
+        <View style={styles.formContainer}>
+          <TextInput
+            mode="outlined"
+            label="Full Name"
+            placeholder="John Doe"
+            value={name}
+            onChangeText={(text) => { setName(text); setError(""); }}
+            autoCapitalize="words"
+            textContentType="name"
+            style={styles.input}
+            left={<TextInput.Icon icon="account-outline" />}
+            error={!!error && error.includes("name")}
+          />
 
-        <TextInput
-          mode="outlined"
-          label="Email"
-          placeholder="name@mail.com"
-          value={email}
-          onChangeText={(text) => { setEmail(text); setError(""); }}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          style={styles.input}
-          left={<TextInput.Icon icon="email-outline" />}
-          error={!!error && error.includes("email")}
-        />
+          <TextInput
+            mode="outlined"
+            label="Email"
+            placeholder="name@mail.com"
+            value={email}
+            onChangeText={(text) => { setEmail(text); setError(""); }}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            style={styles.input}
+            left={<TextInput.Icon icon="email-outline" />}
+            error={!!error && error.includes("email")}
+          />
 
-        <TextInput
-          mode="outlined"
-          label="Password"
-          placeholder="Create a strong password"
-          value={password}
-          onChangeText={(text) => { setPassword(text); setError(""); }}
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          textContentType="newPassword"
-          style={styles.input}
-          right={
-            <TextInput.Icon 
-              icon={showPassword ? "eye-off" : "eye"} 
-              onPress={() => setShowPassword(!showPassword)} 
-            />
-          }
-          left={<TextInput.Icon icon="lock-outline" />}
-          error={!!error && error.includes("Password")}
-        />
+          <TextInput
+            mode="outlined"
+            label="Password"
+            placeholder="Create a strong password"
+            value={password}
+            onChangeText={(text) => { setPassword(text); setError(""); }}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            textContentType="newPassword"
+            style={styles.input}
+            right={
+              <TextInput.Icon 
+                icon={showPassword ? "eye-off" : "eye"} 
+                onPress={() => setShowPassword(!showPassword)} 
+              />
+            }
+            left={<TextInput.Icon icon="lock-outline" />}
+            error={!!error && error.includes("Password")}
+          />
 
-        <TextInput
-          mode="outlined"
-          label="Confirm Password"
-          placeholder="Repeat your password"
-          value={confirmPassword}
-          onChangeText={(text) => { setConfirmPassword(text); setError(""); }}
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          textContentType="newPassword"
-          style={styles.input}
-          left={<TextInput.Icon icon="lock-check-outline" />}
-          right={
-            <TextInput.Icon 
-              icon={showPassword ? "eye-off" : "eye"} 
-              onPress={() => setShowPassword(!showPassword)} 
-            />
-          }
-          error={!!error && error.includes("match")}
-        />
+          <TextInput
+            mode="outlined"
+            label="Confirm Password"
+            placeholder="Repeat your password"
+            value={confirmPassword}
+            onChangeText={(text) => { setConfirmPassword(text); setError(""); }}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            textContentType="newPassword"
+            style={styles.input}
+            left={<TextInput.Icon icon="lock-check-outline" />}
+            right={
+              <TextInput.Icon 
+                icon={showPassword ? "eye-off" : "eye"} 
+                onPress={() => setShowPassword(!showPassword)} 
+              />
+            }
+            error={!!error && error.includes("match")}
+          />
 
-        {error ? (
-          <HelperText type="error" visible={!!error} style={styles.helperText}>
-            {error}
-          </HelperText>
-        ) : null}
-      </View>
+          {error ? (
+            <HelperText type="error" visible={!!error} style={styles.helperText}>
+              {error}
+            </HelperText>
+          ) : null}
+        </View>
 
-      <Button 
-        mode="contained" 
-        onPress={handleRegister} 
-        loading={isLoading}
-        disabled={isLoading}
-        style={styles.button}
-        contentStyle={styles.buttonContent}
-      >
-        Sign Up
-      </Button>
+        <Button 
+          mode="contained" 
+          onPress={handleRegister} 
+          loading={isLoading}
+          disabled={isLoading}
+          style={styles.button}
+          contentStyle={styles.buttonContent}
+        >
+          Sign Up
+        </Button>
 
-      <View style={styles.footerContainer}>
-        <Text variant="bodyLarge" style={{ color: theme.colors.outline }}>Already have an account?</Text>
-        <Link dismissTo href="/(auth)/login" asChild>
-          <Pressable style={styles.linkButton}>
-            <Text variant="bodyLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Sign In</Text>
-          </Pressable>
-        </Link>
+        <View style={styles.footerContainer}>
+          <Text variant="bodyLarge" style={{ color: theme.colors.outline }}>Already have an account?</Text>
+          <Link dismissTo href="/(auth)/login" asChild>
+            <Pressable style={styles.linkButton}>
+              <Text variant="bodyLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Sign In</Text>
+            </Pressable>
+          </Link>
+        </View>
       </View>
     </ScreenWrapper>
   );

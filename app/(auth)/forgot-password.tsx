@@ -5,35 +5,42 @@ import { useSession } from "@/context";
 import { Button, TextInput, Text, useTheme, HelperText } from "react-native-paper";
 import ScreenWrapper from "@/components/ScreenWrapper";
 
-export default function Login() {
+export default function ForgotPassword() {
   const theme = useTheme();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { signIn } = useSession();
+  const { resetPassword } = useSession();
 
-  const handleLogin = async () => {
+  const handleResetPassword = async () => {
     setError("");
-    if (!email || !password) {
-      setError("Please fill in all fields.");
+    setSuccess(false);
+
+    if (!email.trim()) {
+      setError("Please enter your email address.");
       return;
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const resp = await signIn(email, password);
-      // If user returned successfully, redirect
-      if (resp) {
-        router.replace("/(app)");
-      } else {
-        // Since signIn handles its own catch but returns undefined
-        setError("Invalid email or password.");
-      }
+      await resetPassword(email);
+      setSuccess(true);
     } catch (err: any) {
-      console.log("[handleLogin] ==>", err);
-      setError(err.message || "An error occurred during login.");
+      console.log("[handleResetPassword] ==>", err);
+      // Map Firebase specific errors to user-friendly messages
+      if (err.code === 'auth/user-not-found') {
+        setError("No account found with this email address.");
+      } else {
+        setError(err.message || "An error occurred while sending the reset email.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -43,8 +50,10 @@ export default function Login() {
     <ScreenWrapper scrollEnabled>
       <View style={styles.container}>
         <View style={styles.headerContainer}>
-          <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>Welcome Back</Text>
-          <Text variant="titleMedium" style={{ color: theme.colors.outline, marginTop: 10 }}>Please sign in to continue</Text>
+          <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>Reset Password</Text>
+          <Text variant="titleMedium" style={{ color: theme.colors.outline, marginTop: 10, textAlign: 'center', marginHorizontal: 20 }}>
+            Enter your email address and we'll send you a link to reset your password.
+          </Text>
         </View>
 
         <View style={styles.formContainer}>
@@ -53,30 +62,11 @@ export default function Login() {
             label="Email"
             placeholder="name@mail.com"
             value={email}
-            onChangeText={(text) => { setEmail(text); setError(""); }}
+            onChangeText={(text) => { setEmail(text); setError(""); setSuccess(false); }}
             autoCapitalize="none"
             keyboardType="email-address"
             style={styles.input}
             left={<TextInput.Icon icon="email-outline" />}
-            error={!!error}
-          />
-
-          <TextInput
-            mode="outlined"
-            label="Password"
-            placeholder="Your password"
-            value={password}
-            onChangeText={(text) => { setPassword(text); setError(""); }}
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            style={styles.input}
-            right={
-              <TextInput.Icon 
-                icon={showPassword ? "eye-off" : "eye"} 
-                onPress={() => setShowPassword(!showPassword)} 
-              />
-            }
-            left={<TextInput.Icon icon="lock-outline" />}
             error={!!error}
           />
 
@@ -86,31 +76,28 @@ export default function Login() {
             </HelperText>
           ) : null}
 
-          <View style={{ alignItems: 'flex-end', width: '100%', marginBottom: 12 }}>
-            <Link dismissTo href="/(auth)/forgot-password" asChild>
-              <Pressable>
-                <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Forgot Password?</Text>
-              </Pressable>
-            </Link>
-          </View>
+          {success ? (
+            <HelperText type="info" visible={success} style={[styles.helperText, { color: theme.colors.primary }]}>
+              Password reset link sent! Check your email.
+            </HelperText>
+          ) : null}
         </View>
 
         <Button 
           mode="contained" 
-          onPress={handleLogin} 
+          onPress={handleResetPassword} 
           loading={isLoading}
-          disabled={isLoading}
+          disabled={isLoading || success}
           style={styles.button}
           contentStyle={styles.buttonContent}
         >
-          Sign In
+          Send Reset Link
         </Button>
 
         <View style={styles.footerContainer}>
-          <Text variant="bodyLarge" style={{ color: theme.colors.outline }}>Don't have an account?</Text>
-          <Link dismissTo href="/(auth)/register" asChild>
+          <Link dismissTo href="/(auth)/login" asChild>
             <Pressable style={styles.linkButton}>
-              <Text variant="bodyLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Sign Up</Text>
+              <Text variant="bodyLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Back to Sign In</Text>
             </Pressable>
           </Link>
         </View>
@@ -158,7 +145,6 @@ const styles = StyleSheet.create({
     marginTop: 35,
   },
   linkButton: {
-    marginLeft: 5,
     padding: 5,
   },
 });

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
-import { login, logout, register } from "@/providers/AuthProvider";
+import { login, logout, register, resetPassword } from "@/providers/AuthProvider";
 import { auth, db } from "@/config/firebaseConfig";
 import { doc, onSnapshot, Unsubscribe } from "firebase/firestore";
 
@@ -41,6 +41,11 @@ interface AuthContextType {
    * Logs out the current user and clears session
    */
   signOut: () => void;
+
+  /**
+   * Triggers a Firebase password reset email
+   */
+  resetPassword: (email: string) => Promise<boolean>;
 
   /** Currently authenticated user */
   user: User | null;
@@ -161,12 +166,23 @@ export function SessionProvider(props: { children: React.ReactNode }) {
     }
   };
 
+  const handleResetPassword = async (email: string) => {
+    try {
+      await resetPassword(email);
+      return true;
+    } catch (error) {
+      console.error("[handleResetPassword error] ==>", error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         signIn: handleSignIn,
         signUp: handleSignUp,
         signOut: handleSignOut,
+        resetPassword: handleResetPassword,
         user,
         profile,
         isLoading,
