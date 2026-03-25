@@ -4,7 +4,7 @@ import { View, Platform } from "react-native";
 import { ActivityIndicator, useTheme } from "react-native-paper";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function AppLayout() {
+export default function RootLayout() {
   const { user, isLoading } = useSession();
   const theme = useTheme();
 
@@ -20,65 +20,71 @@ export default function AppLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // Automatically adapt the Tab bar depth based on the platform for standard native inset support
-  const OS_TAB_HEIGHT = Platform.OS === 'ios' ? 88 : 68;
-  const OS_TAB_PADDING_BOTTOM = Platform.OS === 'ios' ? 28 : 12;
+  // Optimized geometry for mobile screens
+  const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 94 : 72;
+  const PADDING_BOTTOM = Platform.OS === 'ios' ? 34 : 10;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: true,
+        tabBarLabelPosition: 'below-icon',
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          borderTopWidth: 0, // Disable stark borders for a premium flat melt
-          elevation: 0,
-          height: OS_TAB_HEIGHT,
-          paddingBottom: OS_TAB_PADDING_BOTTOM,
-          paddingTop: 12,
+          borderTopWidth: 1,
+          borderTopColor: theme.colors.outlineVariant,
+          height: TAB_BAR_HEIGHT,
+          paddingBottom: PADDING_BOTTOM,
+          paddingTop: 8,
+          elevation: 8, // Add shadow for Android visibility
         },
-        // Pull native vector colors from the dynamically updating React Native Paper active theme instance
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.outline,
         tabBarLabelStyle: {
-          fontWeight: '600',
-          fontSize: 12,
-          marginTop: 4,
+          fontWeight: '700',
+          fontSize: 10,
+          letterSpacing: 0.5,
+          marginTop: -4, // Pull text up slightly towards icon
         },
+        tabBarIconStyle: {
+          marginBottom: 0,
+        }
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'DASHBOARD',
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="view-dashboard" size={26} color={color} />
+            <MaterialCommunityIcons name="view-dashboard" size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="groups"
         options={{
-          title: 'Groups',
+          title: 'GROUPS',
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="account-group" size={26} color={color} />
+            <MaterialCommunityIcons name="account-group" size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="activity"
         options={{
-          title: 'Activity',
+          title: 'ACTIVITY',
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="history" size={26} color={color} />
+            <MaterialCommunityIcons name="history" size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'PROFILE',
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="account-circle" size={26} color={color} />
+            <MaterialCommunityIcons name="account-circle" size={24} color={color} />
           ),
         }}
       />
