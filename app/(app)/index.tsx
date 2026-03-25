@@ -25,7 +25,7 @@ export default function Root() {
     user?.displayName || user?.email?.split("@")[0] || "Guest";
 
   return (
-    <ScreenWrapper 
+    <ScreenWrapper
       contentContainerStyle={styles.container}
     >
       {/* Welcome Section */}
@@ -35,13 +35,8 @@ export default function Root() {
         <Text style={[styles.email, { color: theme.colors.outline }]}>{user?.email}</Text>
       </View>
 
-      <View style={styles.settingsSection}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>Appearance</Text>
-        <ThemeToggle />
-      </View>
-
-      <Button 
-        mode="contained" 
+      <Button
+        mode="contained"
         onPress={handleLogout}
         buttonColor={theme.colors.error}
         textColor={theme.colors.onError}
