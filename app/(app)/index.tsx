@@ -32,10 +32,43 @@ export default function DashboardScreen() {
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [expenseError, setExpenseError] = useState("");
 
-  // Dashboard Settle Up state
+  // Settle Up state — visibility decoupled from data to prevent flash
   const [isSettlePickerVisible, setIsSettlePickerVisible] = useState(false);
+  const [isSettleStep2Open, setIsSettleStep2Open] = useState(false);
   const [settleTarget, setSettleTarget] = useState<Friend | null>(null);
   const [isSettling, setIsSettling] = useState(false);
+
+  // --- Dismiss helpers: close first, clear data after animation ---
+  const dismissExpense = () => {
+    setIsAddExpenseVisible(false);
+    setTimeout(() => {
+      setExpenseTitle("");
+      setExpenseAmount("");
+      setSelectedFriend(null);
+      setFriendSearchQuery("");
+      setExpenseError("");
+    }, 300);
+  };
+
+  const dismissFriend = () => {
+    setIsAddFriendVisible(false);
+    setTimeout(() => {
+      setFriendName("");
+      setFriendEmail("");
+      setAddFriendError("");
+    }, 300);
+  };
+
+  const dismissSettle = () => {
+    setIsSettlePickerVisible(false);
+    setIsSettleStep2Open(false);  // close step 2 independently
+    setTimeout(() => setSettleTarget(null), 350); // clear AFTER animation
+  };
+
+  const openSettleStep2 = (friend: Friend) => {
+    setSettleTarget(friend);
+    setIsSettleStep2Open(true);
+  };
 
   // FAB expand-then-collapse animation on every screen focus
   const fabLabelAnim = useRef(new Animated.Value(1)).current;
@@ -95,12 +128,11 @@ export default function DashboardScreen() {
     if (!user) return;
 
     setIsAddingFriend(true);
+    const nameSnap = friendName;
     try {
-      await addGhostFriend(user.uid, friendName, friendEmail);
-      setIsAddFriendVisible(false);
-      setFriendName("");
-      setFriendEmail("");
-      setToastMessage(`${friendName} has been added to your network!`);
+      await addGhostFriend(user.uid, nameSnap, friendEmail);
+      dismissFriend(); // Close first, clear after animation
+      setToastMessage(`${nameSnap} has been added to your network!`);
       loadDashboardData();
     } catch (err: any) {
       console.error("Add Friend Error:", err);
@@ -134,19 +166,16 @@ export default function DashboardScreen() {
 
     setIsAddingExpense(true);
     try {
+      const titleSnap = expenseTitle;
+      const friendSnap = selectedFriend;
       await createPeerSplit(user.uid, {
-        title: expenseTitle,
+        title: titleSnap,
         totalAmount: amountFloat,
         payerId: user.uid,
-        friendId: selectedFriend.id
+        friendId: friendSnap!.id
       });
-      setIsAddExpenseVisible(false);
-      setExpenseTitle("");
-      setExpenseAmount("");
-      setSelectedFriend(null);
-      setFriendSearchQuery("");
-      
-      setToastMessage(`Added ${currencySymbol}${amountFloat.toFixed(2)} for ${expenseTitle}. ${selectedFriend.name} owes you half!`);
+      dismissExpense(); // Close first, clear after animation
+      setToastMessage(`Added ${currencySymbol}${amountFloat.toFixed(2)} for ${titleSnap}. ${friendSnap!.name} owes you half!`);
       loadDashboardData();
     } catch (err: any) {
       console.error("Split Error:", err);
@@ -165,10 +194,10 @@ export default function DashboardScreen() {
     if (!settleTarget || !user) return;
     setIsSettling(true);
     try {
+      const name = settleTarget.name;
       await settleUp(user.uid, settleTarget.id, Math.abs(settleTarget.totalBalance));
-      setSettleTarget(null);
-      setIsSettlePickerVisible(false);
-      setToastMessage(`Settled up with ${settleTarget.name}! 🎉`);
+      dismissSettle();
+      setToastMessage(`Settled up with ${name}! 🎉`);
       loadDashboardData();
     } catch (err) {
       console.error("Settle Error:", err);
@@ -347,7 +376,7 @@ export default function DashboardScreen() {
 
       <Portal>
         {/* ADD EXPENSE DIALOG */}
-        <Dialog visible={isAddExpenseVisible} onDismiss={() => setIsAddExpenseVisible(false)} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
+        <Dialog visible={isAddExpenseVisible} onDismiss={dismissExpense} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
           <Dialog.Title style={{ fontWeight: 'bold' }}>Add Expense</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 16 }}>
@@ -435,7 +464,7 @@ export default function DashboardScreen() {
             ) : null}
           </Dialog.Content>
           <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-            <Button onPress={() => setIsAddExpenseVisible(false)} textColor={theme.colors.outline}>Cancel</Button>
+            <Button onPress={dismissExpense} textColor={theme.colors.outline}>Cancel</Button>
             <Button 
               mode="contained" 
               onPress={handleAddExpense} 
@@ -449,7 +478,7 @@ export default function DashboardScreen() {
         </Dialog>
 
         {/* ADD FRIEND DIALOG */}
-        <Dialog visible={isAddFriendVisible} onDismiss={() => setIsAddFriendVisible(false)} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
+        <Dialog visible={isAddFriendVisible} onDismiss={dismissFriend} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
           <Dialog.Title style={{ fontWeight: 'bold' }}>Add to Network</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 16 }}>
@@ -485,7 +514,7 @@ export default function DashboardScreen() {
             ) : null}
           </Dialog.Content>
           <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-            <Button onPress={() => setIsAddFriendVisible(false)} textColor={theme.colors.outline}>Cancel</Button>
+            <Button onPress={dismissFriend} textColor={theme.colors.outline}>Cancel</Button>
             <Button 
               mode="contained" 
               onPress={handleAddFriend} 
@@ -501,7 +530,7 @@ export default function DashboardScreen() {
         {/* SETTLE UP — STEP 1: Pick a Friend */}
         <Dialog
           visible={isSettlePickerVisible && !settleTarget}
-          onDismiss={() => setIsSettlePickerVisible(false)}
+          onDismiss={dismissSettle}
           style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}
         >
           <Dialog.Icon icon="handshake" />
@@ -527,7 +556,7 @@ export default function DashboardScreen() {
                       <Button
                         mode="contained-tonal"
                         compact
-                        onPress={() => setSettleTarget(friend)}
+                        onPress={() => openSettleStep2(friend)}
                         style={{ borderRadius: 12, alignSelf: 'center' }}
                       >
                         Select
@@ -546,8 +575,8 @@ export default function DashboardScreen() {
 
         {/* SETTLE UP — STEP 2: Confirm */}
         <Dialog
-          visible={!!settleTarget}
-          onDismiss={() => setSettleTarget(null)}
+          visible={isSettleStep2Open}
+          onDismiss={dismissSettle}
           style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}
         >
           <Dialog.Icon icon="check-circle" />
@@ -564,7 +593,7 @@ export default function DashboardScreen() {
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setSettleTarget(null)} disabled={isSettling}>Back</Button>
+            <Button onPress={dismissSettle} disabled={isSettling}>Back</Button>
             <Button
               mode="contained"
               onPress={handleSettleUp}

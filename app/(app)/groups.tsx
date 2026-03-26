@@ -22,7 +22,14 @@ export default function GroupsScreen() {
 
   // Settle Up dialog state
   const [settleTarget, setSettleTarget] = useState<Friend | null>(null);
+  const [isSettleOpen, setIsSettleOpen] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
+
+  // Close dialog first, clear data after animation completes
+  const dismissSettle = () => {
+    setIsSettleOpen(false);
+    setTimeout(() => setSettleTarget(null), 300);
+  };
 
   const loadFriends = useCallback(async () => {
     if (!user) return;
@@ -42,10 +49,11 @@ export default function GroupsScreen() {
     if (!settleTarget || !user) return;
     setIsSettling(true);
     try {
+      const name = settleTarget.name;
       await settleUp(user.uid, settleTarget.id, Math.abs(settleTarget.totalBalance));
-      setSettleTarget(null);
-      setToastMessage(`Settled up with ${settleTarget.name}! 🎉`);
-      loadFriends(); // Refresh list
+      dismissSettle();
+      setToastMessage(`Settled up with ${name}! 🎉`);
+      loadFriends();
     } catch (err: any) {
       console.error("Settle Up Error:", err);
     } finally {
@@ -93,7 +101,7 @@ export default function GroupsScreen() {
                         icon="handshake"
                         mode="contained-tonal"
                         size={20}
-                        onPress={() => setSettleTarget(friend)}
+                        onPress={() => { setSettleTarget(friend); setIsSettleOpen(true); }}
                         style={{ margin: 0 }}
                       />
                     )}
@@ -139,8 +147,8 @@ export default function GroupsScreen() {
       {/* Settle Up Confirmation Dialog */}
       <Portal>
         <Dialog
-          visible={!!settleTarget}
-          onDismiss={() => setSettleTarget(null)}
+          visible={isSettleOpen}
+          onDismiss={dismissSettle}
           style={{ backgroundColor: theme.colors.surface, borderRadius: 28, maxWidth: 340, width: '92%', alignSelf: 'center' }}
         >
           <Dialog.Icon icon="handshake" />
@@ -157,7 +165,7 @@ export default function GroupsScreen() {
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setSettleTarget(null)} disabled={isSettling}>Cancel</Button>
+            <Button onPress={dismissSettle} disabled={isSettling}>Cancel</Button>
             <Button
               mode="contained"
               onPress={handleSettleUp}
