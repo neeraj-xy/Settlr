@@ -2,8 +2,8 @@ import { useSession } from "@/context";
 import { useThemeContext } from "@/context/ThemeContext";
 import { useCurrencyContext } from "@/context/CurrencyContext";
 import { router, useFocusEffect } from "expo-router";
-import { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { View, StyleSheet, ScrollView, Animated, TouchableOpacity } from "react-native";
 import { useTheme, Text, FAB, Avatar, IconButton, Portal, Dialog, TextInput, Button, HelperText, ActivityIndicator, List, Divider } from "react-native-paper";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -31,6 +31,27 @@ export default function DashboardScreen() {
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [expenseError, setExpenseError] = useState("");
+
+  // FAB expand-then-collapse animation on every screen focus
+  const fabLabelAnim = useRef(new Animated.Value(1)).current;
+  const [isFabExpanded, setIsFabExpanded] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      // Reset to expanded on every focus
+      fabLabelAnim.setValue(1);
+      setIsFabExpanded(true);
+
+      const timer = setTimeout(() => {
+        Animated.timing(fabLabelAnim, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }).start(() => setIsFabExpanded(false));
+      }, 2500);
+
+      return () => clearTimeout(timer);
+    }, [])
+  );
 
   // Friends data explicitly mapped for Selector Dropdown
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -265,14 +286,38 @@ export default function DashboardScreen() {
       </ScreenWrapper>
 
       {/* Global Dashboard FAB targeting the primary Action logic */}
-      <FAB
-        icon="plus-thick"
-        label="Split Bill"
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        color={theme.colors.onPrimary}
-        uppercase
+      {/* Animated FAB: shows label on mount, collapses to icon after 2.5s */}
+      <TouchableOpacity
         onPress={() => setIsAddExpenseVisible(true)}
-      />
+        activeOpacity={0.85}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: theme.colors.primary,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: isFabExpanded ? 20 : 16,
+            paddingVertical: 16,
+            borderRadius: 24,
+            gap: isFabExpanded ? 10 : 0,
+          }
+        ]}
+      >
+        <MaterialCommunityIcons name="plus-thick" size={24} color={theme.colors.onPrimary} />
+        {isFabExpanded && (
+          <Animated.Text
+            style={{
+              opacity: fabLabelAnim,
+              color: theme.colors.onPrimary,
+              fontWeight: '800',
+              fontSize: 13,
+              letterSpacing: 1,
+            }}
+          >
+            SPLIT BILL
+          </Animated.Text>
+        )}
+      </TouchableOpacity>
 
       <Portal>
         {/* ADD EXPENSE DIALOG */}
@@ -498,7 +543,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     margin: 24,
     right: 0,
-    bottom: 0,
+    bottom: 72, // Clear the fixed tab bar height
     borderRadius: 24,
   },
 });
