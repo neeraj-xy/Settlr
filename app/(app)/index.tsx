@@ -8,7 +8,7 @@ import { useTheme, Text, FAB, Avatar, IconButton, Portal, Dialog, TextInput, But
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Friend, getUserFriends, addGhostFriend } from "@/providers/FriendProvider";
-import { createPeerSplit, getUserSplits, SplitDocument } from "@/providers/SplitProvider";
+import { createPeerSplit, getUserSplits, SplitDocument, settleUp } from "@/providers/SplitProvider";
 
 export default function DashboardScreen() {
   const { user, profile } = useSession();
@@ -31,6 +31,11 @@ export default function DashboardScreen() {
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [expenseError, setExpenseError] = useState("");
+
+  // Dashboard Settle Up state
+  const [isSettlePickerVisible, setIsSettlePickerVisible] = useState(false);
+  const [settleTarget, setSettleTarget] = useState<Friend | null>(null);
+  const [isSettling, setIsSettling] = useState(false);
 
   // FAB expand-then-collapse animation on every screen focus
   const fabLabelAnim = useRef(new Animated.Value(1)).current;
@@ -156,6 +161,22 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleSettleUp = async () => {
+    if (!settleTarget || !user) return;
+    setIsSettling(true);
+    try {
+      await settleUp(user.uid, settleTarget.id, Math.abs(settleTarget.totalBalance));
+      setSettleTarget(null);
+      setIsSettlePickerVisible(false);
+      setToastMessage(`Settled up with ${settleTarget.name}! 🎉`);
+      loadDashboardData();
+    } catch (err) {
+      console.error("Settle Error:", err);
+    } finally {
+      setIsSettling(false);
+    }
+  };
+
   // Dynamic Aggregation Engine
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
   
@@ -213,7 +234,12 @@ export default function DashboardScreen() {
         {/* Core App Actions Array */}
         <View style={styles.actionsRow}>
           <View style={styles.actionItem}>
-            <IconButton icon="arrow-top-right-thick" mode="contained-tonal" size={32} onPress={() => { }} />
+            <IconButton
+              icon="arrow-top-right-thick"
+              mode="contained-tonal"
+              size={32}
+              onPress={() => setIsSettlePickerVisible(true)}
+            />
             <Text variant="labelMedium" style={{ fontWeight: '600' }}>Settle Up</Text>
           </View>
           <View style={styles.actionItem}>
@@ -468,6 +494,85 @@ export default function DashboardScreen() {
               style={{ borderRadius: 12, marginLeft: 8 }}
             >
               Add Friend
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* SETTLE UP — STEP 1: Pick a Friend */}
+        <Dialog
+          visible={isSettlePickerVisible && !settleTarget}
+          onDismiss={() => setIsSettlePickerVisible(false)}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}
+        >
+          <Dialog.Icon icon="handshake" />
+          <Dialog.Title style={{ fontWeight: 'bold', textAlign: 'center' }}>Settle Up</Dialog.Title>
+          <Dialog.Content>
+            {friends.filter(f => f.totalBalance !== 0).length === 0 ? (
+              <Text style={{ textAlign: 'center', color: theme.colors.outline }}>
+                No outstanding balances! You are all settled up. 🎉
+              </Text>
+            ) : (
+              <>
+                <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 12 }}>
+                  Select who to settle with:
+                </Text>
+                {friends.filter(f => f.totalBalance !== 0).map((friend) => (
+                  <List.Item
+                    key={friend.id}
+                    title={friend.name}
+                    titleStyle={{ fontWeight: 'bold' }}
+                    description={`Balance: ${currencySymbol}${Math.abs(friend.totalBalance).toFixed(2)}`}
+                    left={props => <Avatar.Text size={40} label={friend.name.substring(0, 2).toUpperCase()} style={{ marginLeft: 0 }} />}
+                    right={props => (
+                      <Button
+                        mode="contained-tonal"
+                        compact
+                        onPress={() => setSettleTarget(friend)}
+                        style={{ borderRadius: 12, alignSelf: 'center' }}
+                      >
+                        Select
+                      </Button>
+                    )}
+                    style={{ paddingHorizontal: 0 }}
+                  />
+                ))}
+              </>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setIsSettlePickerVisible(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* SETTLE UP — STEP 2: Confirm */}
+        <Dialog
+          visible={!!settleTarget}
+          onDismiss={() => setSettleTarget(null)}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}
+        >
+          <Dialog.Icon icon="check-circle" />
+          <Dialog.Title style={{ fontWeight: 'bold', textAlign: 'center' }}>Confirm Settlement</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ textAlign: 'center', color: theme.colors.outline }}>
+              Clear your balance with{' '}
+              <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{settleTarget?.name}</Text>
+              {' '}of{' '}
+              <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>
+                {currencySymbol}{Math.abs(settleTarget?.totalBalance ?? 0).toFixed(2)}
+              </Text>
+              ?
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setSettleTarget(null)} disabled={isSettling}>Back</Button>
+            <Button
+              mode="contained"
+              onPress={handleSettleUp}
+              loading={isSettling}
+              disabled={isSettling}
+              style={{ borderRadius: 12 }}
+            >
+              Confirm
             </Button>
           </Dialog.Actions>
         </Dialog>

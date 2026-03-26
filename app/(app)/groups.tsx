@@ -1,49 +1,67 @@
 import { useState, useCallback } from "react";
 import { View, StyleSheet } from "react-native";
-import { useTheme, Text, Avatar, ActivityIndicator, List, Divider } from "react-native-paper";
+import { useTheme, Text, Avatar, ActivityIndicator, List, Divider, Button, IconButton, Dialog, Portal } from "react-native-paper";
 import { useFocusEffect } from "expo-router";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { useSession } from "@/context";
+import { useThemeContext } from "@/context/ThemeContext";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Friend, getUserFriends } from "@/providers/FriendProvider";
 import { useCurrencyContext } from "@/context/CurrencyContext";
+import { settleUp } from "@/providers/SplitProvider";
 
 export default function GroupsScreen() {
   const theme = useTheme();
   const { user, profile } = useSession();
   const { currencySymbol } = useCurrencyContext();
+  const { setToastMessage } = useThemeContext();
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [isLoadingFriends, setIsLoadingFriends] = useState(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      async function loadFriends() {
-        if (!user) return;
-        try {
-          const fetchedFriends = await getUserFriends(user.uid);
-          setFriends(fetchedFriends);
-        } catch (err) {
-          console.error("Failed to fetch friends", err);
-        } finally {
-          setIsLoadingFriends(false);
-        }
-      }
-      loadFriends();
-    }, [user])
-  );
+  // Settle Up dialog state
+  const [settleTarget, setSettleTarget] = useState<Friend | null>(null);
+  const [isSettling, setIsSettling] = useState(false);
+
+  const loadFriends = useCallback(async () => {
+    if (!user) return;
+    try {
+      const fetchedFriends = await getUserFriends(user.uid);
+      setFriends(fetchedFriends);
+    } catch (err) {
+      console.error("Failed to fetch friends", err);
+    } finally {
+      setIsLoadingFriends(false);
+    }
+  }, [user]);
+
+  useFocusEffect(useCallback(() => { loadFriends(); }, [loadFriends]));
+
+  const handleSettleUp = async () => {
+    if (!settleTarget || !user) return;
+    setIsSettling(true);
+    try {
+      await settleUp(user.uid, settleTarget.id, Math.abs(settleTarget.totalBalance));
+      setSettleTarget(null);
+      setToastMessage(`Settled up with ${settleTarget.name}! 🎉`);
+      loadFriends(); // Refresh list
+    } catch (err: any) {
+      console.error("Settle Up Error:", err);
+    } finally {
+      setIsSettling(false);
+    }
+  };
 
   return (
     <ScreenWrapper scrollEnabled contentContainerStyle={styles.container}>
 
-      {/* Universal Header Profile Row */}
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text variant="titleMedium" style={{ color: theme.colors.outline }}>Network</Text>
           <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: '900' }}>Friends & Groups</Text>
         </View>
-        
         {profile?.photoURL ? (
           <Avatar.Image size={52} source={{ uri: profile.photoURL }} />
         ) : (
@@ -69,14 +87,31 @@ export default function GroupsScreen() {
                   </View>
                 )}
                 right={props => (
-                  <View style={{ justifyContent: 'center', marginRight: 16, alignItems: 'flex-end' }}>
-                    <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>BALANCE</Text>
-                    <Text variant="titleMedium" style={{ color: friend.totalBalance < 0 ? theme.colors.error : (friend.totalBalance > 0 ? theme.colors.primary : theme.colors.onSurface), fontWeight: 'bold' }}>
-                      {currencySymbol}{Math.abs(friend.totalBalance).toFixed(2)}
-                    </Text>
+                  <View style={{ justifyContent: 'center', marginRight: 8, alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
+                    {friend.totalBalance !== 0 && (
+                      <IconButton
+                        icon="handshake"
+                        mode="contained-tonal"
+                        size={20}
+                        onPress={() => setSettleTarget(friend)}
+                        style={{ margin: 0 }}
+                      />
+                    )}
+                    <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                      <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>BALANCE</Text>
+                      <Text
+                        variant="titleMedium"
+                        style={{
+                          color: friend.totalBalance < 0 ? theme.colors.error : (friend.totalBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {currencySymbol}{Math.abs(friend.totalBalance).toFixed(2)}
+                      </Text>
+                    </View>
                   </View>
                 )}
-                style={{ paddingVertical: 8 }}
+                style={{ paddingVertical: 12 }}
               />
               {index < friends.length - 1 && <Divider style={{ marginLeft: 72 }} />}
             </View>
@@ -87,13 +122,12 @@ export default function GroupsScreen() {
           <MaterialCommunityIcons name="account-group-outline" size={56} color={theme.colors.outline} style={{ marginBottom: 16 }} />
           <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: 'bold', marginBottom: 8 }}>No Friends Yet</Text>
           <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 28 }}>
-            Add someone from the Dashboard to start splitting expenses instantly without Groups!
+            Add someone from the Dashboard to start splitting expenses instantly!
           </Text>
         </View>
       )}
 
       <Text variant="titleLarge" style={{ fontWeight: 'bold', marginBottom: 16 }}>My Groups</Text>
-
       <View style={[styles.emptyActivity, { borderColor: theme.colors.outlineVariant }]}>
         <MaterialCommunityIcons name="google-circles-extended" size={56} color={theme.colors.outline} style={{ marginBottom: 16 }} />
         <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: 'bold', marginBottom: 8 }}>No Active Groups</Text>
@@ -101,6 +135,41 @@ export default function GroupsScreen() {
           You aren't sharing expenses in any groups yet.{"\n"}Create one for a trip, apartment, or dinner!
         </Text>
       </View>
+
+      {/* Settle Up Confirmation Dialog */}
+      <Portal>
+        <Dialog
+          visible={!!settleTarget}
+          onDismiss={() => setSettleTarget(null)}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, maxWidth: 340, width: '92%', alignSelf: 'center' }}
+        >
+          <Dialog.Icon icon="handshake" />
+          <Dialog.Title style={{ textAlign: 'center', fontWeight: 'bold' }}>Settle Up</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ textAlign: 'center', color: theme.colors.outline }}>
+              This will clear your balance with{" "}
+              <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{settleTarget?.name}</Text>
+              {" "}and log a settlement of{" "}
+              <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>
+                {currencySymbol}{Math.abs(settleTarget?.totalBalance ?? 0).toFixed(2)}
+              </Text>
+              .
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setSettleTarget(null)} disabled={isSettling}>Cancel</Button>
+            <Button
+              mode="contained"
+              onPress={handleSettleUp}
+              loading={isSettling}
+              disabled={isSettling}
+              style={{ borderRadius: 12 }}
+            >
+              Confirm
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScreenWrapper>
   );
 }
@@ -108,7 +177,7 @@ export default function GroupsScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    paddingBottom: 120, // Tab bar native clearance
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
