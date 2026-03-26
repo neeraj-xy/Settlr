@@ -50,7 +50,13 @@ export default function GroupsScreen() {
     setIsSettling(true);
     try {
       const name = settleTarget.name;
-      await settleUp(user.uid, settleTarget.id, Math.abs(settleTarget.totalBalance));
+      await settleUp(
+        user.uid,
+        settleTarget.id,
+        Math.abs(settleTarget.totalBalance),
+        settleTarget.linkedUserId ?? undefined,
+        settleTarget.mirrorFriendDocId ?? undefined,
+      );
       dismissSettle();
       setToastMessage(`Settled up with ${name}! 🎉`);
       loadFriends();

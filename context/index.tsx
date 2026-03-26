@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { login, logout, register, resetPassword } from "@/providers/AuthProvider";
 import { auth, db } from "@/config/firebaseConfig";
-import { doc, onSnapshot, Unsubscribe } from "firebase/firestore";
+import { doc, onSnapshot, Unsubscribe, setDoc } from "firebase/firestore";
 
 // ============================================================================
 // Types & Interfaces
@@ -102,8 +102,16 @@ export function SessionProvider(props: { children: React.ReactNode }) {
       }
 
       if (firebaseUser) {
-        // Start real-time Firestore listener for the user profile
+        // Persist email to Firestore so the user is discoverable by email
+        // (used by addGhostFriend to link ghost entries to real accounts)
         const profileRef = doc(db, "users", firebaseUser.uid);
+        setDoc(
+          profileRef,
+          { email: firebaseUser.email, displayName: firebaseUser.displayName },
+          { merge: true }
+        ).catch((e) => console.warn("[profile sync]", e));
+
+        // Start real-time Firestore listener for the user profile
         unsubscribeProfile = onSnapshot(profileRef, (docSnap) => {
           if (docSnap.exists()) {
             setProfile(docSnap.data() as UserProfile);

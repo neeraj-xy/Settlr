@@ -172,7 +172,9 @@ export default function DashboardScreen() {
         title: titleSnap,
         totalAmount: amountFloat,
         payerId: user.uid,
-        friendId: friendSnap!.id
+        friendId: friendSnap!.id,
+        linkedFriendId: friendSnap!.linkedUserId ?? undefined,
+        mirrorFriendDocId: friendSnap!.mirrorFriendDocId ?? undefined,
       });
       dismissExpense(); // Close first, clear after animation
       setToastMessage(`Added ${currencySymbol}${amountFloat.toFixed(2)} for ${titleSnap}. ${friendSnap!.name} owes you half!`);
@@ -195,7 +197,13 @@ export default function DashboardScreen() {
     setIsSettling(true);
     try {
       const name = settleTarget.name;
-      await settleUp(user.uid, settleTarget.id, Math.abs(settleTarget.totalBalance));
+      await settleUp(
+        user.uid,
+        settleTarget.id,
+        Math.abs(settleTarget.totalBalance),
+        settleTarget.linkedUserId ?? undefined,
+        settleTarget.mirrorFriendDocId ?? undefined,
+      );
       dismissSettle();
       setToastMessage(`Settled up with ${name}! 🎉`);
       loadDashboardData();
