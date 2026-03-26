@@ -4,41 +4,40 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GridBackground from './GridBackground';
+import AppGridBackground from './AppGridBackground';
 
 type ScreenWrapperProps = {
   children: React.ReactNode;
   contentContainerStyle?: ViewStyle;
   scrollEnabled?: boolean;
+  /** 'auth'  = coin/vignette background (login, register)
+   *  'app'   = clean grid background (dashboard and inner screens) — default */
+  variant?: 'auth' | 'app';
 };
 
 export default function ScreenWrapper({
   children,
   contentContainerStyle,
   scrollEnabled = true,
+  variant = 'app',
 }: ScreenWrapperProps) {
   const theme = useTheme();
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       
-      {/* 
-        Global Unified Background Mechanism:
-        This sits underneath the Navigation Tree and perfectly fills the screen entirely independent of Safe Areas.
-        Because it's isolated from the ScrollView, it stays flawlessly static while login/dashboard components slide above.
-      */}
-      <GridBackground />
+      {variant === 'auth' ? <GridBackground /> : <AppGridBackground />}
 
       {scrollEnabled ? (
         <KeyboardAwareScrollView
           style={styles.container}
           contentContainerStyle={[
             styles.scrollContent,
-            contentContainerStyle, // Applies internal padding natively via individual screen layouts
+            contentContainerStyle,
           ]}
           keyboardShouldPersistTaps="handled"
           bottomOffset={20}
         >
-          {/* Universal Constraint Clamp for Ultra-Wide Desktop Modules */}
           <View style={styles.responsiveClamp}>
             {children}
           </View>

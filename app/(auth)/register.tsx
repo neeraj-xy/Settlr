@@ -63,7 +63,7 @@ export default function Register() {
   };
 
   return (
-    <ScreenWrapper scrollEnabled>
+    <ScreenWrapper scrollEnabled variant="auth">
       <View style={styles.container}>
         <View style={styles.headerContainer}>
           <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>Create Account</Text>
