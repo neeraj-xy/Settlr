@@ -1,61 +1,44 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, { Defs, Pattern, Line, Circle, Rect } from 'react-native-svg';
+import Svg, { Defs, Pattern, Circle, Rect } from 'react-native-svg';
 import { useThemeContext } from '@/context/ThemeContext';
 
 /**
- * A clean, minimal engineering-grid background for authenticated app screens.
- * Uses a 40px grid of thin lines with subtle dot intersections.
- * Automatically adapts opacity for dark and light modes.
+ * Classic dot-grid background — the industry-standard pattern used by
+ * Notion, Linear, Vercel, and most modern SaaS dashboards.
+ * Pure dots at regular intervals, no lines.
  */
 export default function AppGridBackground() {
   const { colorScheme } = useThemeContext();
   const isDark = colorScheme === 'dark';
 
-  const lineColor = isDark ? '#ffffff' : '#000000';
-  const lineOpacity = isDark ? 0.06 : 0.05;
-  const dotOpacity = isDark ? 0.14 : 0.10;
+  // Dark mode: soft white dots on dark bg
+  // Light mode: muted grey dots on white bg — slightly more prominent so they're visible
+  const dotColor = isDark ? '#ffffff' : '#94a3b8';
+  const dotOpacity = isDark ? 0.18 : 0.55;
+  const dotRadius = 0.9;
+  const spacing = 24; // 24px grid — tight enough to feel premium
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width="100%" height="100%">
         <Defs>
-          {/* 40px repeating grid cell */}
           <Pattern
-            id="gridCell"
+            id="dotGrid"
             patternUnits="userSpaceOnUse"
-            width="40"
-            height="40"
+            width={spacing}
+            height={spacing}
           >
-            {/* Vertical line (right edge of cell) */}
-            <Line
-              x1="40" y1="0"
-              x2="40" y2="40"
-              stroke={lineColor}
-              strokeWidth="0.5"
-              strokeOpacity={lineOpacity}
-            />
-            {/* Horizontal line (bottom edge of cell) */}
-            <Line
-              x1="0" y1="40"
-              x2="40" y2="40"
-              stroke={lineColor}
-              strokeWidth="0.5"
-              strokeOpacity={lineOpacity}
-            />
-            {/* Dot at grid intersection for depth */}
             <Circle
-              cx="40"
-              cy="40"
-              r="1"
-              fill={lineColor}
+              cx={spacing / 2}
+              cy={spacing / 2}
+              r={dotRadius}
+              fill={dotColor}
               fillOpacity={dotOpacity}
             />
           </Pattern>
         </Defs>
-
-        {/* Fill the entire screen with the grid pattern */}
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#gridCell)" />
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#dotGrid)" />
       </Svg>
     </View>
   );
