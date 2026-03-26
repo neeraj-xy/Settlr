@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useTheme, Button, Text, Avatar, IconButton, TextInput, ActivityIndicator } from "react-native-paper";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import ThemeToggle from "@/components/ThemeToggle";
+import CurrencyToggle from "@/components/CurrencyToggle";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { updateProfile } from "firebase/auth";
@@ -176,6 +177,9 @@ export default function ProfileScreen() {
       <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer }]}>
         <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>THEME ENGINE</Text>
         <ThemeToggle />
+        <View style={{ height: 16 }} />
+        <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>CURRENCY SETTINGS</Text>
+        <CurrencyToggle />
       </View>
 
       <Button

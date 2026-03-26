@@ -6,10 +6,12 @@ import ScreenWrapper from "@/components/ScreenWrapper";
 import { useSession } from "@/context";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Friend, getUserFriends } from "@/providers/FriendProvider";
+import { useCurrencyContext } from "@/context/CurrencyContext";
 
 export default function GroupsScreen() {
   const theme = useTheme();
   const { user, profile } = useSession();
+  const { currencySymbol } = useCurrencyContext();
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
 
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -70,7 +72,7 @@ export default function GroupsScreen() {
                   <View style={{ justifyContent: 'center', marginRight: 16, alignItems: 'flex-end' }}>
                     <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>BALANCE</Text>
                     <Text variant="titleMedium" style={{ color: friend.totalBalance < 0 ? theme.colors.error : (friend.totalBalance > 0 ? theme.colors.primary : theme.colors.onSurface), fontWeight: 'bold' }}>
-                      ${Math.abs(friend.totalBalance).toFixed(2)}
+                      {currencySymbol}{Math.abs(friend.totalBalance).toFixed(2)}
                     </Text>
                   </View>
                 )}

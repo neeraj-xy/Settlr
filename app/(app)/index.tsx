@@ -1,5 +1,6 @@
 import { useSession } from "@/context";
 import { useThemeContext } from "@/context/ThemeContext";
+import { useCurrencyContext } from "@/context/CurrencyContext";
 import { router, useFocusEffect } from "expo-router";
 import { useState, useCallback } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
@@ -12,6 +13,7 @@ import { createPeerSplit, getUserSplits, SplitDocument } from "@/providers/Split
 export default function DashboardScreen() {
   const { user, profile } = useSession();
   const { setToastMessage } = useThemeContext();
+  const { currencySymbol } = useCurrencyContext();
   const theme = useTheme();
 
   // Add Friend Modal State
@@ -118,7 +120,7 @@ export default function DashboardScreen() {
       setSelectedFriend(null);
       setFriendSearchQuery("");
       
-      setToastMessage(`Added $${amountFloat.toFixed(2)} for ${expenseTitle}. ${selectedFriend.name} owes you half!`);
+      setToastMessage(`Added ${currencySymbol}${amountFloat.toFixed(2)} for ${expenseTitle}. ${selectedFriend.name} owes you half!`);
       loadDashboardData();
     } catch (err: any) {
       console.error("Split Error:", err);
@@ -164,7 +166,7 @@ export default function DashboardScreen() {
             <View>
               <Text variant="titleMedium" style={{ color: theme.colors.onPrimaryContainer, opacity: 0.8 }}>Total Balance</Text>
               <Text variant="displayLarge" style={{ color: theme.colors.onPrimaryContainer, fontWeight: '900', marginTop: 0 }}>
-                ${Math.abs(totalBalance).toFixed(2)}
+                {currencySymbol}{Math.abs(totalBalance).toFixed(2)}
               </Text>
             </View>
             <MaterialCommunityIcons name="wallet-outline" size={56} color={theme.colors.onPrimaryContainer} style={{ opacity: 0.15 }} />
@@ -174,14 +176,14 @@ export default function DashboardScreen() {
             <View style={styles.metricBlock}>
               <Text variant="labelMedium" style={{ color: theme.colors.outline, marginBottom: 4, letterSpacing: 0.5 }}>YOU OWE</Text>
               <Text variant="titleLarge" style={{ color: theme.colors.error, fontWeight: 'bold' }}>
-                ${totalYouOwe.toFixed(2)}
+                {currencySymbol}{totalYouOwe.toFixed(2)}
               </Text>
             </View>
             <View style={[styles.verticalDivider, { backgroundColor: theme.colors.outlineVariant }]} />
             <View style={styles.metricBlock}>
               <Text variant="labelMedium" style={{ color: theme.colors.outline, marginBottom: 4, letterSpacing: 0.5 }}>YOU ARE OWED</Text>
               <Text variant="titleLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
-                ${totalYouAreOwed.toFixed(2)}
+                {currencySymbol}{totalYouAreOwed.toFixed(2)}
               </Text>
             </View>
           </View>
@@ -247,7 +249,7 @@ export default function DashboardScreen() {
                             {isPayer ? "YOU LENT" : "YOU BORROWED"}
                           </Text>
                           <Text variant="titleMedium" style={{ color: isPayer ? theme.colors.primary : theme.colors.error, fontWeight: 'bold' }}>
-                            ${owedAmount.toFixed(2)}
+                            {currencySymbol}{owedAmount.toFixed(2)}
                           </Text>
                         </View>
                       )}
@@ -295,7 +297,7 @@ export default function DashboardScreen() {
             
             <TextInput
               mode="outlined"
-              label="Total Cost ($)"
+              label={`Total Cost (${currencySymbol})`}
               placeholder="0.00"
               value={expenseAmount}
               onChangeText={(text) => { setExpenseAmount(text); setExpenseError(""); }}

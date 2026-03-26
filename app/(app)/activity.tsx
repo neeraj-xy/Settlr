@@ -7,10 +7,12 @@ import { useState, useCallback } from "react";
 import { useFocusEffect } from "expo-router";
 import { Friend, getUserFriends } from "@/providers/FriendProvider";
 import { getUserSplits, SplitDocument } from "@/providers/SplitProvider";
+import { useCurrencyContext } from "@/context/CurrencyContext";
 
 export default function ActivityScreen() {
   const theme = useTheme();
   const { user, profile } = useSession();
+  const { currencySymbol } = useCurrencyContext();
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
 
   const [splits, setSplits] = useState<SplitDocument[]>([]);
@@ -88,7 +90,7 @@ export default function ActivityScreen() {
                         {isPayer ? "YOU LENT" : "YOU BORROWED"}
                       </Text>
                       <Text variant="titleMedium" style={{ color: isPayer ? theme.colors.primary : theme.colors.error, fontWeight: 'bold' }}>
-                        ${owedAmount.toFixed(2)}
+                        {currencySymbol}{owedAmount.toFixed(2)}
                       </Text>
                     </View>
                   )}

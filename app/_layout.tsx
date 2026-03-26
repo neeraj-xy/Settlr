@@ -1,5 +1,6 @@
 import { SessionProvider } from "@/context";
 import { AppThemeProvider, useThemeContext } from "@/context/ThemeContext";
+import { CurrencyProvider } from "@/context/CurrencyContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Slot, SplashScreen } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -149,9 +150,11 @@ function RootNavigation() {
 export default function Root() {
   return (
     <AppThemeProvider>
-      <SessionProvider>
-        <RootNavigation />
-      </SessionProvider>
+      <CurrencyProvider>
+        <SessionProvider>
+          <RootNavigation />
+        </SessionProvider>
+      </CurrencyProvider>
     </AppThemeProvider>
   );
 }
