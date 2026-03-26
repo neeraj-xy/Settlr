@@ -64,9 +64,9 @@ export default function RootLayout() {
       <Tabs.Screen
         name="groups"
         options={{
-          title: 'GROUPS',
+          title: 'NETWORK',
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="account-group" size={24} color={color} />
+            <MaterialCommunityIcons name="account-multiple" size={24} color={color} />
           ),
         }}
       />
