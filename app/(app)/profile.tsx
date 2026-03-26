@@ -1,7 +1,7 @@
 import { useSession } from "@/context";
 import { View, StyleSheet, Alert } from "react-native";
 import { router } from "expo-router";
-import { useTheme, Button, Text, Avatar, IconButton, TextInput, ActivityIndicator } from "react-native-paper";
+import { useTheme, Button, Text, Avatar, IconButton, TextInput, ActivityIndicator, List, Portal, Dialog } from "react-native-paper";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import ThemeToggle from "@/components/ThemeToggle";
 import CurrencyToggle from "@/components/CurrencyToggle";
@@ -18,6 +18,7 @@ export default function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [tempName, setTempName] = useState("");
+  const [isSignOutVisible, setIsSignOutVisible] = useState(false);
 
   // Sync tempName when profile/user loads
   useEffect(() => {
@@ -182,16 +183,50 @@ export default function ProfileScreen() {
         <CurrencyToggle />
       </View>
 
-      <Button
-        mode="outlined"
-        onPress={handleLogout}
-        textColor={theme.colors.error}
-        style={[styles.logoutButton, { borderColor: theme.colors.error }]}
-        contentStyle={styles.buttonContent}
-        labelStyle={styles.logoutText}
-      >
-        Sign Out Securely
-      </Button>
+      {/* Sign Out Section */}
+      <View style={[styles.mainCard, { backgroundColor: theme.colors.surface, marginBottom: 0, paddingHorizontal: 0, paddingVertical: 0 }]}>
+        <List.Item
+          title="Sign Out"
+          titleStyle={{ color: theme.colors.error, fontWeight: '600' }}
+          left={props => (
+            <List.Icon {...props} icon="logout" color={theme.colors.error} />
+          )}
+          right={props => (
+            <List.Icon {...props} icon="chevron-right" color={theme.colors.error} />
+          )}
+          onPress={() => setIsSignOutVisible(true)}
+          style={{ paddingHorizontal: 16, borderRadius: 28 }}
+        />
+      </View>
+
+      {/* Sign Out Confirmation Dialog */}
+      <Portal>
+        <Dialog
+          visible={isSignOutVisible}
+          onDismiss={() => setIsSignOutVisible(false)}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, maxWidth: 340, width: '92%', alignSelf: 'center' }}
+        >
+          <Dialog.Icon icon="logout" />
+          <Dialog.Title style={{ textAlign: 'center', fontWeight: 'bold' }}>Sign Out?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ textAlign: 'center', color: theme.colors.outline }}>
+              You'll need to sign back in to access your account and splits.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setIsSignOutVisible(false)}>Cancel</Button>
+            <Button
+              mode="contained"
+              onPress={handleLogout}
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              style={{ borderRadius: 12 }}
+            >
+              Sign Out
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScreenWrapper>
   );
 }
@@ -235,16 +270,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoutButton: {
-    width: "100%",
-    borderRadius: 16,
+    alignSelf: 'center',
+    borderRadius: 12,
     marginTop: 10,
-    borderWidth: 2,
-  },
-  buttonContent: {
-    paddingVertical: 8,
+    borderWidth: 1.5,
+    paddingHorizontal: 8,
   },
   logoutText: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 });
