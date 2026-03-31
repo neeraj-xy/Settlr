@@ -38,7 +38,7 @@ export default function ProfileScreen() {
    */
   const syncProfile = async (updates: { displayName?: string; photoURL?: string }) => {
     if (!user) return;
-    
+
     try {
       // 1. Update Firestore Document (Primary source for high-res data like Base64)
       const userRef = doc(db, "users", user.uid);
@@ -48,7 +48,7 @@ export default function ProfileScreen() {
       // We avoid syncing massive Base64 strings to Auth to prevent "URL too long" errors.
       const authUpdates: any = { ...updates };
       if (updates.photoURL && updates.photoURL.startsWith('data:')) {
-        delete authUpdates.photoURL; 
+        delete authUpdates.photoURL;
       }
       await updateProfile(user, authUpdates);
     } catch (error) {
@@ -184,7 +184,7 @@ export default function ProfileScreen() {
       </View>
 
       {/* Sign Out Section */}
-      <View style={[styles.mainCard, { backgroundColor: theme.colors.surface, marginBottom: 0, paddingHorizontal: 0, paddingVertical: 0 }]}>
+      <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer, marginBottom: 0, paddingHorizontal: 0, paddingVertical: 0 }]}>
         <List.Item
           title="Sign Out"
           titleStyle={{ color: theme.colors.error, fontWeight: '600' }}
@@ -204,7 +204,7 @@ export default function ProfileScreen() {
         <Dialog
           visible={isSignOutVisible}
           onDismiss={() => setIsSignOutVisible(false)}
-          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, maxWidth: 340, width: '92%', alignSelf: 'center' }}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, maxWidth: 340, width: '92%', alignSelf: 'center' }}
         >
           <Dialog.Icon icon="logout" />
           <Dialog.Title style={{ textAlign: 'center', fontWeight: 'bold' }}>Sign Out?</Dialog.Title>
@@ -245,8 +245,8 @@ const styles = StyleSheet.create({
   },
   cameraBadge: {
     position: 'absolute',
-    bottom: -12,
-    right: -12,
+    bottom: -15,
+    right: -15,
     elevation: 4,
   },
   mainCard: {

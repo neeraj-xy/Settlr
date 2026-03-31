@@ -296,7 +296,7 @@ export default function DashboardScreen() {
                 {currencySymbol}{totalYouOwe.toFixed(2)}
               </Text>
             </View>
-            <View style={[styles.verticalDivider, { backgroundColor: theme.colors.outlineVariant }]} />
+            <View style={[styles.verticalDivider, { backgroundColor: theme.colors.outline }]} />
             <View style={styles.metricBlock}>
               <Text variant="labelMedium" style={{ color: theme.colors.outline, marginBottom: 4, letterSpacing: 0.5 }}>YOU ARE OWED</Text>
               <Text variant="titleLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
@@ -341,7 +341,7 @@ export default function DashboardScreen() {
           {isLoadingSplits ? (
             <ActivityIndicator style={{ marginTop: 20 }} />
           ) : splits.length === 0 ? (
-            <View style={[styles.emptyActivity, { borderColor: theme.colors.outlineVariant }]}>
+            <View style={[styles.emptyActivity, { borderColor: theme.colors.outline }]}>
               <MaterialCommunityIcons name="history" size={36} color={theme.colors.outline} style={{ marginBottom: 12 }} />
               <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 24 }}>
                 You haven't split any expenses yet.{"\n"}When you settle up, history will appear here.
@@ -491,7 +491,7 @@ export default function DashboardScreen() {
 
       <Portal>
         {/* ADD EXPENSE DIALOG */}
-        <Dialog visible={isAddExpenseVisible} onDismiss={dismissExpense} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
+        <Dialog visible={isAddExpenseVisible} onDismiss={dismissExpense} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
           <Dialog.Title style={{ fontWeight: 'bold' }}>Add Expense</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 16 }}>
@@ -593,7 +593,7 @@ export default function DashboardScreen() {
         </Dialog>
 
         {/* ADD FRIEND DIALOG */}
-        <Dialog visible={isAddFriendVisible} onDismiss={dismissFriend} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
+        <Dialog visible={isAddFriendVisible} onDismiss={dismissFriend} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
           <Dialog.Title style={{ fontWeight: 'bold' }}>Add to Network</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 16 }}>
@@ -646,7 +646,7 @@ export default function DashboardScreen() {
         <Dialog
           visible={isSettlePickerVisible && !settleTarget}
           onDismiss={dismissSettle}
-          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}
         >
           <Dialog.Icon icon="handshake" />
           <Dialog.Title style={{ fontWeight: 'bold', textAlign: 'center' }}>Settle Up</Dialog.Title>
@@ -692,7 +692,7 @@ export default function DashboardScreen() {
         <Dialog
           visible={isSettleStep2Open}
           onDismiss={dismissSettle}
-          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, width: '90%', maxWidth: 400, alignSelf: 'center' }}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}
         >
           <Dialog.Icon icon="check-circle" />
           <Dialog.Title style={{ fontWeight: 'bold', textAlign: 'center' }}>Confirm Settlement</Dialog.Title>

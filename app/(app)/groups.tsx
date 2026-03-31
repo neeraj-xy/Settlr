@@ -201,7 +201,7 @@ export default function GroupsScreen() {
           })}
         </View>
       ) : (
-        <View style={[styles.emptyActivity, { borderColor: theme.colors.outlineVariant, marginBottom: 40 }]}>
+        <View style={[styles.emptyActivity, { borderColor: theme.colors.outline, marginBottom: 40 }]}>
           <MaterialCommunityIcons name="account-group-outline" size={56} color={theme.colors.outline} style={{ marginBottom: 16 }} />
           <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: 'bold', marginBottom: 8 }}>No Friends Yet</Text>
           <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 28 }}>
@@ -211,7 +211,7 @@ export default function GroupsScreen() {
       )}
 
       <Text variant="titleLarge" style={{ fontWeight: 'bold', marginBottom: 16 }}>My Groups</Text>
-      <View style={[styles.emptyActivity, { borderColor: theme.colors.outlineVariant }]}>
+      <View style={[styles.emptyActivity, { borderColor: theme.colors.outline }]}>
         <MaterialCommunityIcons name="google-circles-extended" size={56} color={theme.colors.outline} style={{ marginBottom: 16 }} />
         <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: 'bold', marginBottom: 8 }}>No Active Groups</Text>
         <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 28 }}>
@@ -224,7 +224,7 @@ export default function GroupsScreen() {
         <Dialog
           visible={isSettleOpen}
           onDismiss={dismissSettle}
-          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, maxWidth: 340, width: '92%', alignSelf: 'center' }}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, maxWidth: 340, width: '92%', alignSelf: 'center' }}
         >
           <Dialog.Icon icon="handshake" />
           <Dialog.Title style={{ textAlign: 'center', fontWeight: 'bold' }}>Settle Up</Dialog.Title>

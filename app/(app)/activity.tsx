@@ -91,7 +91,7 @@ export default function ActivityScreen() {
       {isLoading ? (
         <ActivityIndicator style={{ marginTop: 40 }} />
       ) : splits.length === 0 ? (
-        <View style={[styles.emptyActivity, { borderColor: theme.colors.outlineVariant }]}>
+        <View style={[styles.emptyActivity, { borderColor: theme.colors.outline }]}>
           <MaterialCommunityIcons name="history" size={56} color={theme.colors.outline} style={{ marginBottom: 16 }} />
           <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: 'bold', marginBottom: 8 }}>No Recent Interactions</Text>
           <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 28 }}>
