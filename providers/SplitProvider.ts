@@ -90,6 +90,9 @@ export async function createPeerSplit(currentUserId: string, splitData: PeerSpli
     batch.update(friendshipRef, {
       [`balances.${normalizeEmail(splitData.payerEmail!)}`]: increment(splitAmount),
       [`balances.${normalizeEmail(splitData.friendEmail!)}`]: increment(-splitAmount),
+      // NEW: Log Gross Owed/Owe breakdown
+      [`grossBalances.${normalizeEmail(splitData.payerEmail!)}.owed`]: increment(splitAmount),
+      [`grossBalances.${normalizeEmail(splitData.friendEmail!)}.owe`]: increment(splitAmount),
       lastUpdated: serverTimestamp(),
     });
 
@@ -161,6 +164,11 @@ export async function settleUp(
       await updateDoc(friendshipRef, {
         [`balances.${normalizeEmail(payerEmail!)}`]: 0,
         [`balances.${normalizeEmail(friendEmail!)}`]: 0,
+        // NEW: Reset Gross totals upon settlement
+        [`grossBalances.${normalizeEmail(payerEmail!)}.owe`]: 0,
+        [`grossBalances.${normalizeEmail(payerEmail!)}.owed`]: 0,
+        [`grossBalances.${normalizeEmail(friendEmail!)}.owe`]: 0,
+        [`grossBalances.${normalizeEmail(friendEmail!)}.owed`]: 0,
         lastUpdated: serverTimestamp(),
       });
     }
@@ -195,6 +203,11 @@ export async function confirmSettlement(splitId: string, currentUserId: string):
     batch.update(friendshipRef, {
       [`balances.${normalizeEmail(data.payerEmail)}`]: 0,
       [`balances.${normalizeEmail(data.friendEmail)}`]: 0,
+      // NEW: Reset Gross totals upon settlement
+      [`grossBalances.${normalizeEmail(data.payerEmail)}.owe`]: 0,
+      [`grossBalances.${normalizeEmail(data.payerEmail)}.owed`]: 0,
+      [`grossBalances.${normalizeEmail(data.friendEmail)}.owe`]: 0,
+      [`grossBalances.${normalizeEmail(data.friendEmail)}.owed`]: 0,
       lastUpdated: serverTimestamp(),
     });
 

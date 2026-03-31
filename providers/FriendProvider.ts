@@ -23,6 +23,8 @@ export interface Friend {
     isPayer: boolean;
     splitId: string;
   };
+  youOwe: number;
+  youAreOwed: number;
 }
 
 export interface Friendship {
@@ -30,6 +32,7 @@ export interface Friendship {
   participants: string[]; // [email1, email2]
   uids: string[]; // [uid1, uid2] - can be null if ghost
   balances: Record<string, number>; // { email: net_balance }
+  grossBalances?: Record<string, { owe: number; owed: number }>; // { email: { owe, owed } }
   names: Record<string, string>; // { email: display_name }
   lastUpdated: any;
   createdAt: any;
@@ -112,8 +115,10 @@ export async function getFriendships(
 
       const balanceKey = normalizeEmail(email);
       const balance = data.balances[balanceKey] || 0;
-      if (balance < 0) totalOwe += Math.abs(balance);
-      else totalOwed += balance;
+      
+      const gross = data.grossBalances?.[balanceKey] || { owe: 0, owed: 0 };
+      totalOwe += gross.owe || 0;
+      totalOwed += gross.owed || 0;
 
       const otherEmailKey = normalizeEmail(otherEmail);
 
@@ -124,6 +129,8 @@ export async function getFriendships(
         linkedUserId: data.uids.find((u: string) => u !== currentUserId) || null,
         mirrorFriendDocId: null,
         totalBalance: balance,
+        youOwe: gross.owe || 0,
+        youAreOwed: gross.owed || 0,
         createdAt: data.createdAt,
         pendingSettlement: pendingMap[otherEmailKey],
       });
@@ -190,6 +197,8 @@ export async function addGhostFriend(
     linkedUserId,
     mirrorFriendDocId: null,
     totalBalance: 0,
+    youOwe: 0,
+    youAreOwed: 0,
     createdAt: new Date(),
   };
 }

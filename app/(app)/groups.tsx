@@ -47,8 +47,16 @@ export default function GroupsScreen() {
         settleTarget.name,
         settleTarget.totalBalance > 0
       );
-      const isPending = !!settleTarget.linkedUserId;
-      setToastMessage(isPending ? `Settlement request sent to ${settleTarget.name}! 🤝` : `Settled up with ${settleTarget.name}! 🤝`);
+      const isReceiving = settleTarget.totalBalance > 0;
+      const isPending = !!settleTarget.linkedUserId && !isReceiving;
+      
+      if (isReceiving) {
+        setToastMessage(`Acknowledged payment from ${settleTarget.name}! 🤝`);
+      } else if (isPending) {
+        setToastMessage(`Settlement request sent to ${settleTarget.name}! 🤝`);
+      } else {
+        setToastMessage(`Settled up with ${settleTarget.name}! 🎉`);
+      }
       dismissSettle();
       loadFriends();
     } catch (err) {
@@ -104,7 +112,7 @@ export default function GroupsScreen() {
           <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: '900' }}>Friends & Groups</Text>
         </View>
         {profile?.photoURL ? (
-          <Avatar.Image size={52} source={{ uri: profile.photoURL }} />
+          <Avatar.Image size={52} source={{ uri: profile.photoURL as string }} />
         ) : (
           <Avatar.Text size={52} label={displayName.substring(0, 2).toUpperCase()} />
         )}
@@ -201,7 +209,20 @@ export default function GroupsScreen() {
           })}
         </View>
       ) : (
-        <View style={[styles.emptyActivity, { borderColor: theme.colors.outline, marginBottom: 40 }]}>
+        <View
+          style={[
+            styles.emptyActivity,
+            {
+              borderColor: theme.colors.outline,
+              marginBottom: 40,
+              backgroundColor: theme.dark ? 'rgba(30, 30, 30, 0.4)' : 'rgba(255, 255, 255, 0.4)',
+              // @ts-ignore - Web CSS passthrough
+              backdropFilter: 'blur(10px)',
+              // @ts-ignore - Web CSS passthrough
+              WebkitBackdropFilter: 'blur(10px)',
+            }
+          ]}
+        >
           <MaterialCommunityIcons name="account-group-outline" size={56} color={theme.colors.outline} style={{ marginBottom: 16 }} />
           <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: 'bold', marginBottom: 8 }}>No Friends Yet</Text>
           <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 28 }}>
@@ -211,7 +232,19 @@ export default function GroupsScreen() {
       )}
 
       <Text variant="titleLarge" style={{ fontWeight: 'bold', marginBottom: 16 }}>My Groups</Text>
-      <View style={[styles.emptyActivity, { borderColor: theme.colors.outline }]}>
+      <View
+        style={[
+          styles.emptyActivity,
+          {
+            borderColor: theme.colors.outline,
+            backgroundColor: theme.dark ? 'rgba(30, 30, 30, 0.4)' : 'rgba(255, 255, 255, 0.4)',
+            // @ts-ignore - Web CSS passthrough
+            backdropFilter: 'blur(10px)',
+            // @ts-ignore - Web CSS passthrough
+            WebkitBackdropFilter: 'blur(10px)',
+          }
+        ]}
+      >
         <MaterialCommunityIcons name="google-circles-extended" size={56} color={theme.colors.outline} style={{ marginBottom: 16 }} />
         <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: 'bold', marginBottom: 8 }}>No Active Groups</Text>
         <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 28 }}>
@@ -270,11 +303,10 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   emptyActivity: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
+    borderWidth: 1,
     borderRadius: 24,
     padding: 40,
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.01)',
+    borderStyle: 'dashed',
   },
 });

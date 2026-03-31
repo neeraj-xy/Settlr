@@ -220,8 +220,16 @@ export default function DashboardScreen() {
         settleTarget.totalBalance > 0
       );
       dismissSettle();
-      const isPending = !!settleTarget.linkedUserId;
-      setToastMessage(isPending ? `Settlement request sent to ${name}! 🤝` : `Settled up with ${name}! 🎉`);
+      const isReceiving = settleTarget.totalBalance > 0;
+      const isPending = !!settleTarget.linkedUserId && !isReceiving;
+      
+      if (isReceiving) {
+        setToastMessage(`Acknowledged payment from ${name}! 🤝`);
+      } else if (isPending) {
+        setToastMessage(`Settlement request sent to ${name}! 🤝`);
+      } else {
+        setToastMessage(`Settled up with ${name}! 🎉`);
+      }
       loadDashboardData();
     } catch (err) {
       console.error("Settle Error:", err);
@@ -255,9 +263,10 @@ export default function DashboardScreen() {
   // Dynamic Aggregation Engine
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
 
-  const totalYouOwe = friends.filter(f => f.totalBalance < 0).reduce((sum, f) => sum + Math.abs(f.totalBalance), 0);
-  const totalYouAreOwed = friends.filter(f => f.totalBalance > 0).reduce((sum, f) => sum + f.totalBalance, 0);
+  const totalYouOwe = friends.reduce((sum, f) => sum + (f.youOwe || 0), 0);
+  const totalYouAreOwed = friends.reduce((sum, f) => sum + (f.youAreOwed || 0), 0);
   const totalBalance = totalYouAreOwed - totalYouOwe;
+
   const getBalanceColor = () => {
     if (totalBalance > 0) return '#4CAF50'; // Positive: Green
     if (totalBalance < -50) return theme.colors.error; // Large debt: Red
@@ -275,7 +284,7 @@ export default function DashboardScreen() {
           </View>
 
           {profile?.photoURL ? (
-            <Avatar.Image size={52} source={{ uri: profile.photoURL }} />
+            <Avatar.Image size={52} source={{ uri: profile.photoURL as string }} />
           ) : (
             <Avatar.Text size={52} label={displayName.substring(0, 2).toUpperCase()} />
           )}
@@ -344,7 +353,19 @@ export default function DashboardScreen() {
           {isLoadingSplits ? (
             <ActivityIndicator style={{ marginTop: 20 }} />
           ) : splits.length === 0 ? (
-            <View style={[styles.emptyActivity, { borderColor: theme.colors.outline }]}>
+            <View
+              style={[
+                styles.emptyActivity,
+                {
+                  borderColor: theme.colors.outline,
+                  backgroundColor: theme.dark ? 'rgba(30, 30, 30, 0.4)' : 'rgba(255, 255, 255, 0.4)',
+                  // @ts-ignore - Web CSS passthrough
+                  backdropFilter: 'blur(10px)',
+                  // @ts-ignore - Web CSS passthrough
+                  WebkitBackdropFilter: 'blur(10px)',
+                }
+              ]}
+            >
               <MaterialCommunityIcons name="history" size={36} color={theme.colors.outline} style={{ marginBottom: 12 }} />
               <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 24 }}>
                 You haven't split any expenses yet.{"\n"}When you settle up, history will appear here.
@@ -437,6 +458,25 @@ export default function DashboardScreen() {
                                   />
                                 )}
                               </>
+                            )}
+                            {!isSettlement && !isPending && (
+                              <IconButton
+                                icon="handshake"
+                                size={20}
+                                mode="contained-tonal"
+                                style={{ margin: 0, marginRight: 10 }}
+                                onPress={() => {
+                                  // Use the resolved node or create a minimal one
+                                  const target = friendNode || {
+                                    id: split.friendId || "",
+                                    name: friendDisplayName,
+                                    email: split.friendEmail || null,
+                                    totalBalance: owedAmount,
+                                    linkedUserId: split.linkedFriendId || null,
+                                  };
+                                  openSettleStep2(target as any);
+                                }}
+                              />
                             )}
                             <Text variant="titleMedium" style={{
                               color: isSettlement ? theme.colors.onSurface : (isPayer ? theme.colors.primary : theme.colors.error),
@@ -784,12 +824,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyActivity: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
+    borderWidth: 1,
     borderRadius: 24,
     padding: 40,
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.01)',
+    borderStyle: 'dashed',
   },
   fab: {
     position: 'absolute',
