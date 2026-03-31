@@ -8,7 +8,7 @@ import { useThemeContext } from "@/context/ThemeContext";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Friend, getFriendships } from "@/providers/FriendProvider";
 import { useCurrencyContext } from "@/context/CurrencyContext";
-import { settleUp } from "@/providers/SplitProvider";
+import { settleUp, confirmSettlement, cancelSettlement } from "@/providers/SplitProvider";
 
 export default function GroupsScreen() {
   const theme = useTheme();
@@ -47,13 +47,36 @@ export default function GroupsScreen() {
         settleTarget.name,
         settleTarget.totalBalance > 0
       );
-      setToastMessage(`Settled with ${settleTarget.name}! 🤝`);
+      const isPending = !!settleTarget.linkedUserId;
+      setToastMessage(isPending ? `Settlement request sent to ${settleTarget.name}! 🤝` : `Settled up with ${settleTarget.name}! 🤝`);
       dismissSettle();
       loadFriends();
     } catch (err) {
       console.error("Settlement Error:", err);
     } finally {
       setIsSettling(false);
+    }
+  };
+
+  const handleConfirmSettlement = async (splitId: string) => {
+    if (!user) return;
+    try {
+      await confirmSettlement(splitId, user.uid);
+      setToastMessage("Payment Verified! Balance updated. 🤝");
+      loadFriends();
+    } catch (err) {
+      console.error("Confirmation Error:", err);
+    }
+  };
+
+  const handleCancelSettlement = async (splitId: string) => {
+    if (!user) return;
+    try {
+      await cancelSettlement(splitId);
+      setToastMessage("Settlement canceled.");
+      loadFriends();
+    } catch (err) {
+      console.error("Cancellation Error:", err);
     }
   };
 
@@ -93,47 +116,89 @@ export default function GroupsScreen() {
         <ActivityIndicator style={{ marginVertical: 40 }} />
       ) : friends.length > 0 ? (
         <View style={{ backgroundColor: theme.colors.surface, borderRadius: 24, overflow: 'hidden', marginBottom: 40 }}>
-          {friends.map((friend, index) => (
-            <View key={friend.id}>
-              <List.Item
-                title={friend.name}
-                titleStyle={{ fontWeight: 'bold' }}
-                description={friend.email || "Offline Tracked Profile"}
-                left={props => (
-                  <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
-                    <Avatar.Text size={40} label={friend.name.substring(0, 2).toUpperCase()} />
-                  </View>
-                )}
-                right={props => (
-                  <View style={{ justifyContent: 'center', marginRight: 8, alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
-                    {friend.totalBalance !== 0 && (
-                      <IconButton
-                        icon="handshake"
-                        mode="contained-tonal"
-                        size={20}
-                        onPress={() => { setSettleTarget(friend); setIsSettleOpen(true); }}
-                        style={{ margin: 0 }}
-                      />
-                    )}
-                    <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                      <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>BALANCE</Text>
-                      <Text
-                        variant="titleMedium"
-                        style={{
-                          color: friend.totalBalance < 0 ? theme.colors.error : (friend.totalBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
-                          fontWeight: 'bold',
-                        }}
-                      >
-                        {currencySymbol}{Math.abs(friend.totalBalance).toFixed(2)}
+          {friends.map((friend, index) => {
+            const hasPending = !!friend.pendingSettlement;
+            const isPayer = friend.pendingSettlement?.isPayer;
+
+            return (
+              <View key={friend.id} style={hasPending ? { backgroundColor: theme.colors.secondaryContainer + '40' } : {}}>
+                <List.Item
+                  title={friend.name}
+                  titleStyle={{ fontWeight: 'bold' }}
+                  description={
+                    <View>
+                      <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+                        {friend.email || "Offline Tracked Profile"}
                       </Text>
+                      {hasPending && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                          <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.secondary} />
+                          <Text variant="labelSmall" style={{ color: theme.colors.secondary, marginLeft: 4, fontWeight: 'bold' }}>
+                            {isPayer ? "WAITING FOR VERIFICATION" : "ACTION REQUIRED: VERIFY PAYMENT"}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  </View>
-                )}
-                style={{ paddingVertical: 12 }}
-              />
-              {index < friends.length - 1 && <Divider style={{ marginLeft: 72 }} />}
-            </View>
-          ))}
+                  }
+                  left={props => (
+                    <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
+                      <Avatar.Text size={40} label={friend.name.substring(0, 2).toUpperCase()} />
+                    </View>
+                  )}
+                  right={props => (
+                    <View style={{ justifyContent: 'center', marginRight: 8, alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
+                      {hasPending && (
+                        <>
+                          <IconButton
+                            icon="close-circle-outline"
+                            size={20}
+                            mode="contained-tonal"
+                            iconColor={theme.colors.error}
+                            style={{ margin: 0 }}
+                            onPress={() => handleCancelSettlement(friend.pendingSettlement!.splitId)}
+                          />
+                          {!isPayer && (
+                            <IconButton
+                              icon="check-decagram"
+                              mode="contained-tonal"
+                              size={20}
+                              onPress={() => handleConfirmSettlement(friend.pendingSettlement!.splitId)}
+                              style={{ margin: 0 }}
+                              containerColor={theme.colors.primaryContainer}
+                              iconColor={theme.colors.primary}
+                            />
+                          )}
+                        </>
+                      )}
+                      {friend.totalBalance !== 0 && !hasPending && (
+                        <IconButton
+                          icon="handshake"
+                          mode="contained-tonal"
+                          size={20}
+                          onPress={() => { setSettleTarget(friend); setIsSettleOpen(true); }}
+                          style={{ margin: 0 }}
+                        />
+                      )}
+                      <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>BALANCE</Text>
+                        <Text
+                          variant="titleMedium"
+                          style={{
+                            color: friend.totalBalance < 0 ? theme.colors.error : (friend.totalBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          {currencySymbol}{Math.abs(friend.totalBalance).toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                  style={{ paddingVertical: 12 }}
+                />
+                {index < friends.length - 1 && <Divider style={{ marginLeft: 72 }} />}
+              </View>
+            );
+          })}
         </View>
       ) : (
         <View style={[styles.emptyActivity, { borderColor: theme.colors.outlineVariant, marginBottom: 40 }]}>

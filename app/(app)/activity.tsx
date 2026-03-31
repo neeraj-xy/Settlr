@@ -6,8 +6,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useCallback } from "react";
 import { useFocusEffect } from "expo-router";
 import { useThemeContext } from "@/context/ThemeContext";
-import { Friend, getUserFriends } from "@/providers/FriendProvider";
-import { getUserSplits, SplitDocument, confirmSettlement } from "@/providers/SplitProvider";
+import { Friend, getFriendships } from "@/providers/FriendProvider";
+import { getUserSplits, SplitDocument, confirmSettlement, cancelSettlement } from "@/providers/SplitProvider";
 import { useCurrencyContext } from "@/context/CurrencyContext";
 
 export default function ActivityScreen() {
@@ -26,10 +26,10 @@ export default function ActivityScreen() {
       async function loadActivityFeed() {
         if (!user) return;
         try {
-          const fetchedFriends = await getUserFriends(user.uid);
+          const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
           setFriends(fetchedFriends);
-          
-          const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 50); 
+
+          const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 50);
           setSplits(fetchedSplits);
         } catch (err) {
           console.error("Failed to load global activity feed", err);
@@ -46,12 +46,28 @@ export default function ActivityScreen() {
     try {
       await confirmSettlement(splitId, user.uid);
       setToastMessage("Payment Verified! Balance updated. 🤝");
-      // Reload splits
-      const fetchedFriends = await getUserFriends(user.uid);
+      // Reload splits using fresh data
+      const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
+      setFriends(fetchedFriends);
       const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 50);
       setSplits(fetchedSplits);
     } catch (err) {
       console.error("Confirmation Error:", err);
+    }
+  };
+
+  const handleCancelSettlement = async (splitId: string) => {
+    if (!user) return;
+    try {
+      await cancelSettlement(splitId);
+      setToastMessage("Settlement canceled.");
+      // Reload splits using fresh data
+      const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
+      setFriends(fetchedFriends);
+      const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 50);
+      setSplits(fetchedSplits);
+    } catch (err) {
+      console.error("Cancellation Error:", err);
     }
   };
 
@@ -64,7 +80,7 @@ export default function ActivityScreen() {
           <Text variant="titleMedium" style={{ color: theme.colors.outline }}>Chronological</Text>
           <Text variant="headlineLarge" style={{ color: theme.colors.onBackground, fontWeight: '900' }}>Activity</Text>
         </View>
-        
+
         {profile?.photoURL ? (
           <Avatar.Image size={52} source={{ uri: profile.photoURL }} />
         ) : (
@@ -86,12 +102,12 @@ export default function ActivityScreen() {
         <View style={{ backgroundColor: theme.colors.surface, borderRadius: 24, overflow: 'hidden' }}>
           {splits.map((split, index) => {
             const isPayer = split.payerId === user?.uid;
-            
+
             // Quadruple-Match identity resolution engine (Deep Scan)
             const friendNode = friends.find(f => {
               if (f.id === split.friendId) return true;
               if (split.linkedFriendId && f.linkedUserId === split.linkedFriendId) return true;
-              
+
               return split.participants?.some(p => {
                 if (p === user?.uid) return false;
                 // Check if participant is a UID we know
@@ -101,15 +117,15 @@ export default function ActivityScreen() {
                 return false;
               });
             });
-            
+
             const isSettlement = split.type === "settlement";
             const isPending = split.status === "pending";
-            
+
             const friendDisplayName = friendNode ? friendNode.name : (isPayer ? split.friendName : split.payerName) || (isPayer ? "Friend" : "Someone");
-            
+
             // Robust amount lookup: sum splitDetails for peer splits
             const owedAmount = Object.values(split.splitDetails || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
-            
+
             return (
               <View key={split.id} style={isPending ? { backgroundColor: theme.colors.secondaryContainer + '40' } : {}}>
                 <List.Item
@@ -132,9 +148,9 @@ export default function ActivityScreen() {
                   }
                   left={() => (
                     <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
-                      <Avatar.Icon 
-                        size={40} 
-                        icon={isSettlement ? "handshake" : (isPayer ? "arrow-up-circle" : "arrow-down-circle")} 
+                      <Avatar.Icon
+                        size={40}
+                        icon={isSettlement ? "handshake" : (isPayer ? "arrow-up-circle" : "arrow-down-circle")}
                         style={{ backgroundColor: isSettlement ? theme.colors.primaryContainer : (isPayer ? theme.colors.errorContainer : theme.colors.primaryContainer) }}
                         color={isSettlement ? theme.colors.onPrimaryContainer : (isPayer ? theme.colors.error : theme.colors.primary)}
                       />
@@ -146,20 +162,32 @@ export default function ActivityScreen() {
                         {isSettlement ? "SETTLEMENT" : (isPayer ? "YOU LENT" : "YOU BORROWED")}
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {isPending && !isPayer && (
-                          <IconButton 
-                            icon="check-decagram" 
-                            size={20} 
-                            mode="contained-tonal"
-                            containerColor={theme.colors.primaryContainer}
-                            iconColor={theme.colors.primary}
-                            style={{ margin: 0, marginRight: 10, alignSelf: 'center' }}
-                            onPress={() => handleConfirmSettlement(split.id)}
-                          />
+                        {isPending && (
+                          <>
+                            <IconButton
+                              icon="close-circle-outline"
+                              size={20}
+                              mode="contained-tonal"
+                              iconColor={theme.colors.error}
+                              style={{ margin: 0, marginRight: 5 }}
+                              onPress={() => handleCancelSettlement(split.id)}
+                            />
+                            {!isPayer && (
+                              <IconButton
+                                icon="check-decagram"
+                                size={20}
+                                mode="contained-tonal"
+                                containerColor={theme.colors.primaryContainer}
+                                iconColor={theme.colors.primary}
+                                style={{ margin: 0, marginRight: 10 }}
+                                onPress={() => handleConfirmSettlement(split.id)}
+                              />
+                            )}
+                          </>
                         )}
-                        <Text variant="titleMedium" style={{ 
-                          color: isSettlement ? theme.colors.onSurface : (isPayer ? theme.colors.primary : theme.colors.error), 
-                          fontWeight: 'bold' 
+                        <Text variant="titleMedium" style={{
+                          color: isSettlement ? theme.colors.onSurface : (isPayer ? theme.colors.primary : theme.colors.error),
+                          fontWeight: 'bold'
                         }}>
                           {currencySymbol}{owedAmount.toFixed(2)}
                         </Text>

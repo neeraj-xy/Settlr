@@ -19,6 +19,10 @@ export interface Friend {
   totalBalance: number;
   createdAt: any;
   isDerived?: boolean;
+  pendingSettlement?: {
+    isPayer: boolean;
+    splitId: string;
+  };
 }
 
 export interface Friendship {
@@ -64,15 +68,54 @@ export async function getFriendships(
     let totalOwe = 0;
     let totalOwed = 0;
 
+    // NEW: Fetch all pending settlements for the current user to sync UI status
+    const searchTerms: string[] = [currentUserId];
+    if (userEmail) searchTerms.push(`email:${userEmail.toLowerCase().trim()}`);
+
+    const pendingQuery = query(
+      collection(db, "splits"),
+      where("participants", "array-contains-any", searchTerms),
+      where("type", "==", "settlement"),
+      where("status", "==", "pending")
+    );
+    const pendingSnap = await getDocs(pendingQuery);
+    const pendingMap: Record<string, { isPayer: boolean, splitId: string }> = {};
+
+    pendingSnap.docs.forEach(d => {
+      const split = d.data();
+      const payerEmailNormalized = split.payerEmail?.toLowerCase().trim();
+      const isPayer = split.payerId === currentUserId || (payerEmailNormalized && payerEmailNormalized === email);
+      
+      // Step 1: Try to find friend's email via explicit fields
+      let otherPersonEmail = isPayer ? split.friendEmail : split.payerEmail;
+      
+      // Step 2: Rescue logic - scan participants if explicit fields are missing (e.g. for older records)
+      if (!otherPersonEmail) {
+        const emailTag = split.participants?.find((p: string) => 
+          p.startsWith("email:") && p.toLowerCase().trim() !== `email:${email}`
+        );
+        if (emailTag) otherPersonEmail = emailTag.split(":")[1];
+      }
+
+      if (otherPersonEmail) {
+        pendingMap[normalizeEmail(otherPersonEmail)] = {
+          isPayer,
+          splitId: d.id
+        };
+      }
+    });
+
     snap.forEach(docSnap => {
       const data = docSnap.data() as Friendship;
-      const otherEmail = data.participants.find((p: string) => p !== email);
+      const otherEmail = data.participants.find((p: string) => p.toLowerCase().trim() !== email);
       if (!otherEmail) return;
 
       const balanceKey = normalizeEmail(email);
       const balance = data.balances[balanceKey] || 0;
       if (balance < 0) totalOwe += Math.abs(balance);
       else totalOwed += balance;
+
+      const otherEmailKey = normalizeEmail(otherEmail);
 
       friends.push({
         id: docSnap.id,
@@ -82,6 +125,7 @@ export async function getFriendships(
         mirrorFriendDocId: null,
         totalBalance: balance,
         createdAt: data.createdAt,
+        pendingSettlement: pendingMap[otherEmailKey],
       });
     });
 

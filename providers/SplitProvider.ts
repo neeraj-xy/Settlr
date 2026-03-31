@@ -11,7 +11,8 @@ import {
   getDocs,
   setDoc,
   updateDoc,
-  getDoc
+  getDoc,
+  deleteDoc
 } from "firebase/firestore";
 import { getFriendshipId, normalizeEmail } from "./FriendProvider";
 
@@ -54,6 +55,10 @@ export async function createPeerSplit(currentUserId: string, splitData: PeerSpli
     }
     if (splitData.friendEmail?.trim()) {
       const emailTag = `email:${splitData.friendEmail.trim().toLowerCase()}`;
+      if (!participants.includes(emailTag)) participants.push(emailTag);
+    }
+    if (splitData.payerEmail?.trim()) {
+      const emailTag = `email:${splitData.payerEmail.trim().toLowerCase()}`;
       if (!participants.includes(emailTag)) participants.push(emailTag);
     }
 
@@ -120,6 +125,10 @@ export async function settleUp(
       const emailTag = `email:${friendEmail.trim().toLowerCase()}`;
       if (!participants.includes(emailTag)) participants.push(emailTag);
     }
+    if (payerEmail?.trim()) {
+      const emailTag = `email:${payerEmail.trim().toLowerCase()}`;
+      if (!participants.includes(emailTag)) participants.push(emailTag);
+    }
 
     const receiverKey = linkedFriendId || friendId;
     const isGhost = !linkedFriendId;
@@ -129,7 +138,7 @@ export async function settleUp(
     const status = (isGhost || isAcknowledgeReceipt) ? "completed" : "pending";
 
     await setDoc(settlementDoc, {
-      title: "Settled Up",
+      title: status === "pending" ? "Settlement Request" : "Settled Up",
       totalAmount: settleAmount,
       payerId: currentUserId,
       payerName: payerName || "Someone",
@@ -175,7 +184,10 @@ export async function confirmSettlement(splitId: string, currentUserId: string):
     if (data.type !== "settlement" || data.status !== "pending") return;
 
     // 1. Mark Settlement as Completed
-    batch.update(splitRef, { status: "completed" });
+    batch.update(splitRef, { 
+      status: "completed",
+      title: "Settled Up"
+    });
 
     // 2. Zero out the shared friendship ledger
     const friendshipId = getFriendshipId(data.payerEmail, data.friendEmail);
@@ -190,6 +202,19 @@ export async function confirmSettlement(splitId: string, currentUserId: string):
     console.log("[DEBUG] Settlement confirmed and shared ledger cleared!");
   } catch (error) {
     console.error("[error confirming settlement] ==>", error);
+    throw error;
+  }
+}
+
+/**
+ * Cancels a pending settlement by deleting the record.
+ */
+export async function cancelSettlement(splitId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, "splits", splitId));
+    console.log("[DEBUG] Settlement canceled.");
+  } catch (error) {
+    console.error("[error canceling settlement] ==>", error);
     throw error;
   }
 }

@@ -8,7 +8,7 @@ import { useTheme, Text, FAB, Avatar, IconButton, Portal, Dialog, TextInput, But
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Friend, getFriendships, addGhostFriend } from "@/providers/FriendProvider";
-import { createPeerSplit, getUserSplits, SplitDocument, settleUp, confirmSettlement } from "@/providers/SplitProvider";
+import { createPeerSplit, getUserSplits, SplitDocument, settleUp, confirmSettlement, cancelSettlement } from "@/providers/SplitProvider";
 
 export default function DashboardScreen() {
   const { user, profile } = useSession();
@@ -131,9 +131,9 @@ export default function DashboardScreen() {
     const nameSnap = friendName;
     try {
       await addGhostFriend(
-        user.uid, 
-        nameSnap, 
-        friendEmail, 
+        user.uid,
+        nameSnap,
+        friendEmail,
         profile?.displayName || user.displayName || user.email?.split('@')[0],
         user.email || undefined
       );
@@ -220,7 +220,8 @@ export default function DashboardScreen() {
         settleTarget.totalBalance > 0
       );
       dismissSettle();
-      setToastMessage(`Settled up with ${name}! 🎉`);
+      const isPending = !!settleTarget.linkedUserId;
+      setToastMessage(isPending ? `Settlement request sent to ${name}! 🤝` : `Settled up with ${name}! 🎉`);
       loadDashboardData();
     } catch (err) {
       console.error("Settle Error:", err);
@@ -237,6 +238,17 @@ export default function DashboardScreen() {
       loadDashboardData();
     } catch (err) {
       console.error("Confirmation Error:", err);
+    }
+  };
+
+  const handleCancelSettlement = async (splitId: string) => {
+    if (!user) return;
+    try {
+      await cancelSettlement(splitId);
+      setToastMessage("Settlement canceled.");
+      loadDashboardData();
+    } catch (err) {
+      console.error("Cancellation Error:", err);
     }
   };
 
@@ -345,7 +357,7 @@ export default function DashboardScreen() {
                 const friendNode = friends.find(f => {
                   if (f.id === split.friendId) return true;
                   if (split.linkedFriendId && f.linkedUserId === split.linkedFriendId) return true;
-                  
+
                   return split.participants?.some(p => {
                     if (p === user?.uid) return false;
                     // Check if participant is a UID we know
@@ -400,16 +412,28 @@ export default function DashboardScreen() {
                             {isSettlement ? "SETTLEMENT" : (isPayer ? "YOU LENT" : "YOU BORROWED")}
                           </Text>
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            {isPending && !isPayer && (
-                              <IconButton 
-                                icon="check-decagram" 
-                                size={20} 
-                                mode="contained-tonal"
-                                containerColor={theme.colors.primaryContainer}
-                                iconColor={theme.colors.primary}
-                                style={{ margin: 0, marginRight: 10, alignSelf: 'center' }}
-                                onPress={() => handleConfirmSettlement(split.id)}
-                              />
+                            {isPending && (
+                              <>
+                                <IconButton
+                                  icon="close-circle-outline"
+                                  size={20}
+                                  mode="contained-tonal"
+                                  iconColor={theme.colors.error}
+                                  style={{ margin: 0, marginRight: 5 }}
+                                  onPress={() => handleCancelSettlement(split.id)}
+                                />
+                                {!isPayer && (
+                                  <IconButton
+                                    icon="check-decagram"
+                                    size={20}
+                                    mode="contained-tonal"
+                                    containerColor={theme.colors.primaryContainer}
+                                    iconColor={theme.colors.primary}
+                                    style={{ margin: 0, marginRight: 10 }}
+                                    onPress={() => handleConfirmSettlement(split.id)}
+                                  />
+                                )}
+                              </>
                             )}
                             <Text variant="titleMedium" style={{
                               color: isSettlement ? theme.colors.onSurface : (isPayer ? theme.colors.primary : theme.colors.error),
