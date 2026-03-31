@@ -6,7 +6,7 @@ import ScreenWrapper from "@/components/ScreenWrapper";
 import { useSession } from "@/context";
 import { useThemeContext } from "@/context/ThemeContext";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Friend, getUserFriends } from "@/providers/FriendProvider";
+import { Friend, getFriendships } from "@/providers/FriendProvider";
 import { useCurrencyContext } from "@/context/CurrencyContext";
 import { settleUp } from "@/providers/SplitProvider";
 
@@ -31,11 +31,37 @@ export default function GroupsScreen() {
     setTimeout(() => setSettleTarget(null), 300);
   };
 
+  const handleSettleUp = async () => {
+    if (!user || !settleTarget) return;
+    setIsSettling(true);
+    try {
+      await settleUp(
+        user.uid,
+        settleTarget.id,
+        Math.abs(settleTarget.totalBalance),
+        settleTarget.linkedUserId || undefined,
+        settleTarget.mirrorFriendDocId || undefined,
+        settleTarget.email,
+        profile?.displayName || user.displayName || user.email?.split("@")[0] || "Someone",
+        user.email || undefined,
+        settleTarget.name,
+        settleTarget.totalBalance > 0
+      );
+      setToastMessage(`Settled with ${settleTarget.name}! 🤝`);
+      dismissSettle();
+      loadFriends();
+    } catch (err) {
+      console.error("Settlement Error:", err);
+    } finally {
+      setIsSettling(false);
+    }
+  };
+
   const loadFriends = useCallback(async () => {
     if (!user) return;
     try {
-      const fetchedFriends = await getUserFriends(user.uid);
-      setFriends(fetchedFriends);
+      const { friends: sharedFriends } = await getFriendships(user.uid, user.email);
+      setFriends(sharedFriends);
     } catch (err) {
       console.error("Failed to fetch friends", err);
     } finally {
@@ -44,28 +70,6 @@ export default function GroupsScreen() {
   }, [user]);
 
   useFocusEffect(useCallback(() => { loadFriends(); }, [loadFriends]));
-
-  const handleSettleUp = async () => {
-    if (!settleTarget || !user) return;
-    setIsSettling(true);
-    try {
-      const name = settleTarget.name;
-      await settleUp(
-        user.uid,
-        settleTarget.id,
-        Math.abs(settleTarget.totalBalance),
-        settleTarget.linkedUserId ?? undefined,
-        settleTarget.mirrorFriendDocId ?? undefined,
-      );
-      dismissSettle();
-      setToastMessage(`Settled up with ${name}! 🎉`);
-      loadFriends();
-    } catch (err: any) {
-      console.error("Settle Up Error:", err);
-    } finally {
-      setIsSettling(false);
-    }
-  };
 
   return (
     <ScreenWrapper scrollEnabled contentContainerStyle={styles.container}>

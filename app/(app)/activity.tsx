@@ -1,18 +1,20 @@
 import { View, StyleSheet, ScrollView } from "react-native";
-import { useTheme, Text, Avatar, ActivityIndicator, List, Divider } from "react-native-paper";
+import { useTheme, Text, Avatar, ActivityIndicator, List, Divider, Button, IconButton } from "react-native-paper";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { useSession } from "@/context";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, useCallback } from "react";
 import { useFocusEffect } from "expo-router";
+import { useThemeContext } from "@/context/ThemeContext";
 import { Friend, getUserFriends } from "@/providers/FriendProvider";
-import { getUserSplits, SplitDocument } from "@/providers/SplitProvider";
+import { getUserSplits, SplitDocument, confirmSettlement } from "@/providers/SplitProvider";
 import { useCurrencyContext } from "@/context/CurrencyContext";
 
 export default function ActivityScreen() {
   const theme = useTheme();
   const { user, profile } = useSession();
   const { currencySymbol } = useCurrencyContext();
+  const { setToastMessage } = useThemeContext();
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
 
   const [splits, setSplits] = useState<SplitDocument[]>([]);
@@ -27,7 +29,7 @@ export default function ActivityScreen() {
           const fetchedFriends = await getUserFriends(user.uid);
           setFriends(fetchedFriends);
           
-          const fetchedSplits = await getUserSplits(user.uid, 50); // Get up to 50 splits for the activity page!
+          const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 50); 
           setSplits(fetchedSplits);
         } catch (err) {
           console.error("Failed to load global activity feed", err);
@@ -38,6 +40,20 @@ export default function ActivityScreen() {
       loadActivityFeed();
     }, [user])
   );
+
+  const handleConfirmSettlement = async (splitId: string) => {
+    if (!user) return;
+    try {
+      await confirmSettlement(splitId, user.uid);
+      setToastMessage("Payment Verified! Balance updated. 🤝");
+      // Reload splits
+      const fetchedFriends = await getUserFriends(user.uid);
+      const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 50);
+      setSplits(fetchedSplits);
+    } catch (err) {
+      console.error("Confirmation Error:", err);
+    }
+  };
 
   return (
     <ScreenWrapper contentContainerStyle={styles.container}>
@@ -69,29 +85,85 @@ export default function ActivityScreen() {
       ) : (
         <View style={{ backgroundColor: theme.colors.surface, borderRadius: 24, overflow: 'hidden' }}>
           {splits.map((split, index) => {
-            const friendNode = friends.find(f => f.id === split.friendId);
             const isPayer = split.payerId === user?.uid;
-            const owedAmount = split.splitDetails[split.friendId] || 0;
+            
+            // Quadruple-Match identity resolution engine (Deep Scan)
+            const friendNode = friends.find(f => {
+              if (f.id === split.friendId) return true;
+              if (split.linkedFriendId && f.linkedUserId === split.linkedFriendId) return true;
+              
+              return split.participants?.some(p => {
+                if (p === user?.uid) return false;
+                // Check if participant is a UID we know
+                if (f.linkedUserId === p) return true;
+                // Check if participant is an Email we know
+                if (p.startsWith("email:") && f.email?.toLowerCase() === p.split(":")[1].toLowerCase()) return true;
+                return false;
+              });
+            });
+            
+            const isSettlement = split.type === "settlement";
+            const isPending = split.status === "pending";
+            
+            const friendDisplayName = friendNode ? friendNode.name : (isPayer ? split.friendName : split.payerName) || (isPayer ? "Friend" : "Someone");
+            
+            // Robust amount lookup: sum splitDetails for peer splits
+            const owedAmount = Object.values(split.splitDetails || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
             
             return (
-              <View key={split.id}>
+              <View key={split.id} style={isPending ? { backgroundColor: theme.colors.secondaryContainer + '40' } : {}}>
                 <List.Item
                   title={split.title}
                   titleStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                  description={friendNode ? `With ${friendNode.name}` : "Unknown Friend"}
+                  description={
+                    <View>
+                      <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+                        {isSettlement ? `Settlement with ${friendDisplayName}` : `With ${friendDisplayName}`}
+                      </Text>
+                      {isPending && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                          <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.secondary} />
+                          <Text variant="labelSmall" style={{ color: theme.colors.secondary, marginLeft: 4, fontWeight: 'bold' }}>
+                            {isPayer ? "WAITING FOR VERIFICATION" : "ACTION REQUIRED: VERIFY PAYMENT"}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  }
                   left={() => (
                     <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
-                      <Avatar.Icon size={40} icon="receipt" style={{ backgroundColor: theme.colors.primaryContainer }} color={theme.colors.primary} />
+                      <Avatar.Icon 
+                        size={40} 
+                        icon={isSettlement ? "handshake" : (isPayer ? "arrow-up-circle" : "arrow-down-circle")} 
+                        style={{ backgroundColor: isSettlement ? theme.colors.primaryContainer : (isPayer ? theme.colors.errorContainer : theme.colors.primaryContainer) }}
+                        color={isSettlement ? theme.colors.onPrimaryContainer : (isPayer ? theme.colors.error : theme.colors.primary)}
+                      />
                     </View>
                   )}
                   right={() => (
                     <View style={{ justifyContent: 'center', marginRight: 16, alignItems: 'flex-end' }}>
                       <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>
-                        {isPayer ? "YOU LENT" : "YOU BORROWED"}
+                        {isSettlement ? "SETTLEMENT" : (isPayer ? "YOU LENT" : "YOU BORROWED")}
                       </Text>
-                      <Text variant="titleMedium" style={{ color: isPayer ? theme.colors.primary : theme.colors.error, fontWeight: 'bold' }}>
-                        {currencySymbol}{owedAmount.toFixed(2)}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {isPending && !isPayer && (
+                          <IconButton 
+                            icon="check-decagram" 
+                            size={20} 
+                            mode="contained-tonal"
+                            containerColor={theme.colors.primaryContainer}
+                            iconColor={theme.colors.primary}
+                            style={{ margin: 0, marginRight: 10, alignSelf: 'center' }}
+                            onPress={() => handleConfirmSettlement(split.id)}
+                          />
+                        )}
+                        <Text variant="titleMedium" style={{ 
+                          color: isSettlement ? theme.colors.onSurface : (isPayer ? theme.colors.primary : theme.colors.error), 
+                          fontWeight: 'bold' 
+                        }}>
+                          {currencySymbol}{owedAmount.toFixed(2)}
+                        </Text>
+                      </View>
                     </View>
                   )}
                   style={{ paddingVertical: 12 }}

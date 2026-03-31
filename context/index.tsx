@@ -105,9 +105,11 @@ export function SessionProvider(props: { children: React.ReactNode }) {
         // Persist email to Firestore so the user is discoverable by email
         // (used by addGhostFriend to link ghost entries to real accounts)
         const profileRef = doc(db, "users", firebaseUser.uid);
+        const normalizedEmail = firebaseUser.email?.toLowerCase() || "";
+        
         setDoc(
           profileRef,
-          { email: firebaseUser.email, displayName: firebaseUser.displayName },
+          { email: normalizedEmail, displayName: firebaseUser.displayName },
           { merge: true }
         ).catch((e) => console.warn("[profile sync]", e));
 

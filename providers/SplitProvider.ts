@@ -8,65 +8,85 @@ import {
   query,
   where,
   limit,
-  getDocs
+  getDocs,
+  setDoc,
+  updateDoc,
+  getDoc
 } from "firebase/firestore";
+import { getFriendshipId, normalizeEmail } from "./FriendProvider";
 
 export interface PeerSplitData {
   title: string;
   totalAmount: number;
   payerId: string;
+  payerName?: string;
+  payerEmail?: string;
   friendId: string;
+  friendName?: string;
+  friendEmail?: string | null;
   /** Real UID of a registered friend (if they have an account) */
   linkedFriendId?: string;
   /** Doc ID in the linked friend's friends sub-collection pointing back to the current user */
   mirrorFriendDocId?: string;
+  /** Dual-Confirmation status for settlements */
+  status?: "pending" | "completed";
 }
 
 export interface SplitDocument extends PeerSplitData {
   id: string;
   date: any;
   splitDetails: Record<string, number>;
+  participants: string[];
   type?: "expense" | "settlement";
 }
 
 /**
  * Executes a 1-on-1 bill split using a Firestore Batch.
- * If the friend is a registered user (linkedFriendId + mirrorFriendDocId provided),
- * also updates their mirror balance so they can see what they owe.
  */
 export async function createPeerSplit(currentUserId: string, splitData: PeerSplitData): Promise<void> {
   const batch = writeBatch(db);
   try {
     const splitAmount = parseFloat((splitData.totalAmount / 2).toFixed(2));
 
-    // Build participants — include real UID if available for cross-account querying
-    const participants = [currentUserId, splitData.friendId];
+    const participants: string[] = [currentUserId, splitData.friendId];
     if (splitData.linkedFriendId && !participants.includes(splitData.linkedFriendId)) {
       participants.push(splitData.linkedFriendId);
     }
+    if (splitData.friendEmail?.trim()) {
+      const emailTag = `email:${splitData.friendEmail.trim().toLowerCase()}`;
+      if (!participants.includes(emailTag)) participants.push(emailTag);
+    }
 
     const newSplitDoc = doc(collection(db, "splits"));
+    const receiverKey = splitData.linkedFriendId || splitData.friendId;
+
     batch.set(newSplitDoc, {
       title: splitData.title.trim(),
       totalAmount: splitData.totalAmount,
       payerId: currentUserId,
+      payerName: splitData.payerName || "Someone",
+      payerEmail: splitData.payerEmail || null,
+      friendId: splitData.friendId,
+      friendName: splitData.friendName || "Friend",
+      friendEmail: splitData.friendEmail || null,
+      linkedFriendId: splitData.linkedFriendId || null,
+      mirrorFriendDocId: splitData.mirrorFriendDocId || null,
       participants,
-      splitDetails: { [splitData.friendId]: splitAmount },
+      splitDetails: { [receiverKey]: splitAmount },
       type: "expense",
       date: serverTimestamp(),
+      status: "completed",
     });
 
-    // Update User A's ghost friend balance (friend owes A)
-    const friendRef = doc(db, "users", currentUserId, "friends", splitData.friendId);
-    batch.update(friendRef, { totalBalance: increment(splitAmount) });
+    const friendshipId = getFriendshipId(splitData.payerEmail!, splitData.friendEmail!);
+    const friendshipRef = doc(db, "friendships", friendshipId);
 
-    // If friend is a registered user, mirror the debt on their side (they owe A)
-    if (splitData.linkedFriendId && splitData.mirrorFriendDocId) {
-      const mirrorRef = doc(
-        db, "users", splitData.linkedFriendId, "friends", splitData.mirrorFriendDocId
-      );
-      batch.update(mirrorRef, { totalBalance: increment(-splitAmount) });
-    }
+    // Update the shared friendship ledger
+    batch.update(friendshipRef, {
+      [`balances.${normalizeEmail(splitData.payerEmail!)}`]: increment(splitAmount),
+      [`balances.${normalizeEmail(splitData.friendEmail!)}`]: increment(-splitAmount),
+      lastUpdated: serverTimestamp(),
+    });
 
     await batch.commit();
   } catch (error) {
@@ -76,46 +96,65 @@ export async function createPeerSplit(currentUserId: string, splitData: PeerSpli
 }
 
 /**
- * Atomically settles all debts between the current user and a Ghost friend.
- * If the friend is registered, resets both sides of the ledger to 0.
+ * Initiates a settlement. Status is 'pending' for registered users, 'completed' for ghosts.
  */
 export async function settleUp(
   currentUserId: string,
   friendId: string,
   settleAmount: number,
   linkedFriendId?: string,
-  mirrorFriendDocId?: string
+  mirrorFriendDocId?: string,
+  friendEmail?: string | null,
+  payerName?: string,
+  payerEmail?: string,
+  friendName?: string,
+  isAcknowledgeReceipt?: boolean
 ): Promise<void> {
-  const batch = writeBatch(db);
   try {
-    // Log the settlement in the global splits ledger
     const settlementDoc = doc(collection(db, "splits"));
-    const participants = [currentUserId, friendId];
+    const participants: string[] = [currentUserId, friendId];
     if (linkedFriendId && !participants.includes(linkedFriendId)) {
       participants.push(linkedFriendId);
     }
+    if (friendEmail?.trim()) {
+      const emailTag = `email:${friendEmail.trim().toLowerCase()}`;
+      if (!participants.includes(emailTag)) participants.push(emailTag);
+    }
 
-    batch.set(settlementDoc, {
+    const receiverKey = linkedFriendId || friendId;
+    const isGhost = !linkedFriendId;
+
+    // Dual-Confirmation: Pending if receiver is a user (payer initiated), 
+    // Completed if ghost or if the receiver is the one acknowledging (one-click).
+    const status = (isGhost || isAcknowledgeReceipt) ? "completed" : "pending";
+
+    await setDoc(settlementDoc, {
       title: "Settled Up",
       totalAmount: settleAmount,
       payerId: currentUserId,
+      payerName: payerName || "Someone",
+      payerEmail: payerEmail || null,
+      friendId: friendId,
+      friendName: friendName || "Friend",
+      linkedFriendId: linkedFriendId || null,
       participants,
-      splitDetails: { [friendId]: 0 },
+      splitDetails: { [receiverKey]: settleAmount },
       type: "settlement",
+      status, 
       date: serverTimestamp(),
+      friendEmail: friendEmail || null,
     });
 
-    // Reset current user's ghost friend balance to 0
-    const friendRef = doc(db, "users", currentUserId, "friends", friendId);
-    batch.update(friendRef, { totalBalance: 0 });
-
-    // If registered user, reset their mirror balance too
-    if (linkedFriendId && mirrorFriendDocId) {
-      const mirrorRef = doc(db, "users", linkedFriendId, "friends", mirrorFriendDocId);
-      batch.update(mirrorRef, { totalBalance: 0 });
+    // If completed instantly, zero out the shared ledger
+    if (status === "completed") {
+      const friendshipId = getFriendshipId(payerEmail!, friendEmail!);
+      const friendshipRef = doc(db, "friendships", friendshipId);
+      await updateDoc(friendshipRef, {
+        [`balances.${normalizeEmail(payerEmail!)}`]: 0,
+        [`balances.${normalizeEmail(friendEmail!)}`]: 0,
+        lastUpdated: serverTimestamp(),
+      });
     }
-
-    await batch.commit();
   } catch (error) {
     console.error("[error settling up] ==>", error);
     throw error;
@@ -123,33 +162,95 @@ export async function settleUp(
 }
 
 /**
- * Retrieves the most recent splits for the current user.
- * Sorting is done locally to avoid requiring a Firestore composite index.
+ * Confirms a pending settlement, officially clearing the balance.
  */
-export async function getUserSplits(userId: string, limitCount: number = 5): Promise<SplitDocument[]> {
+export async function confirmSettlement(splitId: string, currentUserId: string): Promise<void> {
+  const batch = writeBatch(db);
   try {
-    const q = query(
+    const splitRef = doc(db, "splits", splitId);
+    const snap = await getDoc(splitRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    if (data.type !== "settlement" || data.status !== "pending") return;
+
+    // 1. Mark Settlement as Completed
+    batch.update(splitRef, { status: "completed" });
+
+    // 2. Zero out the shared friendship ledger
+    const friendshipId = getFriendshipId(data.payerEmail, data.friendEmail);
+    const friendshipRef = doc(db, "friendships", friendshipId);
+    batch.update(friendshipRef, {
+      [`balances.${normalizeEmail(data.payerEmail)}`]: 0,
+      [`balances.${normalizeEmail(data.friendEmail)}`]: 0,
+      lastUpdated: serverTimestamp(),
+    });
+
+    await batch.commit();
+    console.log("[DEBUG] Settlement confirmed and shared ledger cleared!");
+  } catch (error) {
+    console.error("[error confirming settlement] ==>", error);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves the most recent splits for the current user.
+ * Uses 'Rescue' logic to find splits from linked friends where the user was a participant.
+ */
+export async function getUserSplits(
+  userId: string, 
+  manualFriends: any[], // Use any[] if Friend type not easily imported to avoid circularity
+  userEmail?: string | null,
+  limitCount: number = 5
+): Promise<SplitDocument[]> {
+  try {
+    const searchTerms: string[] = [userId];
+    const emailTag = userEmail?.trim() ? `email:${userEmail.trim().toLowerCase()}` : null;
+    if (emailTag) searchTerms.push(emailTag);
+
+    // PHASE 1: Fetch splits where I am explicitly listed as a participant
+    const directQuery = query(
       collection(db, "splits"),
-      where("participants", "array-contains", userId),
+      where("participants", "array-contains-any", searchTerms),
       limit(50)
     );
-    const querySnapshot = await getDocs(q);
-    const splits: SplitDocument[] = [];
-
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      splits.push({
-        id: docSnap.id,
-        title: data.title,
-        totalAmount: data.totalAmount,
-        payerId: data.payerId,
-        friendId: data.participants?.find((p: string) => p !== userId) || "",
-        splitDetails: data.splitDetails || {},
-        date: data.date,
-        type: data.type || "expense",
+    const directSnap = await getDocs(directQuery);
+    
+    // PHASE 2: Fetch splits where my linked friends are the payer (The 'Rescue')
+    const linkedFriends = (manualFriends || []).filter(f => f.linkedUserId);
+    const rescuePromises = linkedFriends.map(f => {
+      return getDocs(query(collection(db, "splits"), where("payerId", "==", f.linkedUserId), limit(50)));
+    });
+    const rescueSnaps = await Promise.all(rescuePromises);
+    
+    // Merge and deduplicate
+    const allDocsMap: Record<string, SplitDocument> = {};
+    
+    directSnap.docs.forEach(docSnap => {
+      allDocsMap[docSnap.id] = { id: docSnap.id, ...docSnap.data() } as SplitDocument;
+    });
+    
+    rescueSnaps.forEach(snap => {
+      snap.docs.forEach(docSnap => {
+        // Only include if NOT already in map AND the user is actually in this split as a Ghost
+        if (!allDocsMap[docSnap.id]) {
+          const data = docSnap.data();
+          const payerId = data.payerId;
+          const myFriendDocForPayer = manualFriends.find(f => f.linkedUserId === payerId);
+          const possibleIds = [...searchTerms];
+          if (myFriendDocForPayer) possibleIds.push(myFriendDocForPayer.id);
+          
+          if (data.participants?.some((p: string) => possibleIds.includes(p))) {
+            allDocsMap[docSnap.id] = { id: docSnap.id, ...data } as SplitDocument;
+          }
+        }
       });
     });
 
+    const splits = Object.values(allDocsMap);
+
+    // Sort by date (descending)
     splits.sort((a, b) => {
       const timeA = a.date?.toMillis ? a.date.toMillis() : Date.now();
       const timeB = b.date?.toMillis ? b.date.toMillis() : Date.now();

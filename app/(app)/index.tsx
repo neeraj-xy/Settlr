@@ -7,8 +7,8 @@ import { View, StyleSheet, ScrollView, Animated, TouchableOpacity } from "react-
 import { useTheme, Text, FAB, Avatar, IconButton, Portal, Dialog, TextInput, Button, HelperText, ActivityIndicator, List, Divider } from "react-native-paper";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Friend, getUserFriends, addGhostFriend } from "@/providers/FriendProvider";
-import { createPeerSplit, getUserSplits, SplitDocument, settleUp } from "@/providers/SplitProvider";
+import { Friend, getFriendships, addGhostFriend } from "@/providers/FriendProvider";
+import { createPeerSplit, getUserSplits, SplitDocument, settleUp, confirmSettlement } from "@/providers/SplitProvider";
 
 export default function DashboardScreen() {
   const { user, profile } = useSession();
@@ -93,7 +93,7 @@ export default function DashboardScreen() {
 
   // Friends data explicitly mapped for Selector Dropdown
   const [friends, setFriends] = useState<Friend[]>([]);
-  
+
   // Dashboard Metrics & Activity Log States
   const [splits, setSplits] = useState<SplitDocument[]>([]);
   const [isLoadingSplits, setIsLoadingSplits] = useState(true);
@@ -101,10 +101,10 @@ export default function DashboardScreen() {
   const loadDashboardData = useCallback(async () => {
     if (!user) return;
     try {
-      const fetchedFriends = await getUserFriends(user.uid);
-      setFriends(fetchedFriends);
-      
-      const fetchedSplits = await getUserSplits(user.uid);
+      const { friends: sharedFriends } = await getFriendships(user.uid, user.email);
+      setFriends(sharedFriends);
+
+      const fetchedSplits = await getUserSplits(user.uid, sharedFriends, user.email);
       setSplits(fetchedSplits);
     } catch (err) {
       console.error("Failed to sync dashboard analytics", err);
@@ -130,7 +130,13 @@ export default function DashboardScreen() {
     setIsAddingFriend(true);
     const nameSnap = friendName;
     try {
-      await addGhostFriend(user.uid, nameSnap, friendEmail);
+      await addGhostFriend(
+        user.uid, 
+        nameSnap, 
+        friendEmail, 
+        profile?.displayName || user.displayName || user.email?.split('@')[0],
+        user.email || undefined
+      );
       dismissFriend(); // Close first, clear after animation
       setToastMessage(`${nameSnap} has been added to your network!`);
       loadDashboardData();
@@ -138,9 +144,9 @@ export default function DashboardScreen() {
       console.error("Add Friend Error:", err);
       // Determine if it is a permissions issue to assist user setup
       if (err.message?.includes("Missing or insufficient permissions")) {
-         setAddFriendError("Permission Denied: Ensure Firestore rules allow writing to users/{uid}/friends");
+        setAddFriendError("Permission Denied: Ensure Firestore rules allow writing to users/{uid}/friends");
       } else {
-         setAddFriendError("Failed to add friend. Check connection.");
+        setAddFriendError("Failed to add friend. Check connection.");
       }
     } finally {
       setIsAddingFriend(false);
@@ -172,7 +178,11 @@ export default function DashboardScreen() {
         title: titleSnap,
         totalAmount: amountFloat,
         payerId: user.uid,
+        payerName: profile?.displayName || user.displayName || user.email?.split('@')[0] || "Someone",
+        payerEmail: user.email || undefined,
         friendId: friendSnap!.id,
+        friendName: friendSnap!.name,
+        friendEmail: friendSnap!.email,
         linkedFriendId: friendSnap!.linkedUserId ?? undefined,
         mirrorFriendDocId: friendSnap!.mirrorFriendDocId ?? undefined,
       });
@@ -183,9 +193,9 @@ export default function DashboardScreen() {
       console.error("Split Error:", err);
       // Determine if it is a permissions issue to assist user setup
       if (err.message?.includes("Missing or insufficient permissions")) {
-         setExpenseError("Permission Denied: Ensure Firestore rules allow writing to splits collection");
+        setExpenseError("Permission Denied: Ensure Firestore rules allow writing to splits collection");
       } else {
-         setExpenseError("Failed to add expense. Check connection.");
+        setExpenseError("Failed to add expense. Check connection.");
       }
     } finally {
       setIsAddingExpense(false);
@@ -203,6 +213,11 @@ export default function DashboardScreen() {
         Math.abs(settleTarget.totalBalance),
         settleTarget.linkedUserId ?? undefined,
         settleTarget.mirrorFriendDocId ?? undefined,
+        settleTarget.email,
+        profile?.displayName || user.displayName || user.email?.split("@")[0] || "Someone",
+        user.email || undefined,
+        settleTarget.name,
+        settleTarget.totalBalance > 0
       );
       dismissSettle();
       setToastMessage(`Settled up with ${name}! 🎉`);
@@ -214,9 +229,20 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleConfirmSettlement = async (splitId: string) => {
+    if (!user) return;
+    try {
+      await confirmSettlement(splitId, user.uid);
+      setToastMessage("Payment Verified! Balance updated. 🤝");
+      loadDashboardData();
+    } catch (err) {
+      console.error("Confirmation Error:", err);
+    }
+  };
+
   // Dynamic Aggregation Engine
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
-  
+
   const totalYouOwe = friends.filter(f => f.totalBalance < 0).reduce((sum, f) => sum + Math.abs(f.totalBalance), 0);
   const totalYouAreOwed = friends.filter(f => f.totalBalance > 0).reduce((sum, f) => sum + f.totalBalance, 0);
   const totalBalance = totalYouAreOwed - totalYouOwe;
@@ -312,29 +338,86 @@ export default function DashboardScreen() {
           ) : (
             <View style={{ backgroundColor: theme.colors.surface, borderRadius: 24, overflow: 'hidden' }}>
               {splits.map((split, index) => {
-                const friendNode = friends.find(f => f.id === split.friendId);
+                const otherParticipant = split.participants?.find((p: string) => p !== user?.uid);
                 const isPayer = split.payerId === user?.uid;
-                const owedAmount = split.splitDetails[split.friendId] || 0;
-                
+
+                // Quadruple-Match identity resolution engine (Deep Scan)
+                const friendNode = friends.find(f => {
+                  if (f.id === split.friendId) return true;
+                  if (split.linkedFriendId && f.linkedUserId === split.linkedFriendId) return true;
+                  
+                  return split.participants?.some(p => {
+                    if (p === user?.uid) return false;
+                    // Check if participant is a UID we know
+                    if (f.linkedUserId === p) return true;
+                    // Check if participant is an Email we know
+                    if (p.startsWith("email:") && f.email?.toLowerCase() === p.split(":")[1].toLowerCase()) return true;
+                    return false;
+                  });
+                });
+
+                const isSettlement = split.type === "settlement";
+                const isPending = split.status === "pending";
+
+                const friendDisplayName = friendNode ? friendNode.name : (isPayer ? split.friendName : split.payerName) || (isPayer ? "Friend" : "Someone");
+
+                // Robust amount lookup: sum splitDetails for peer splits
+                const owedAmount = Object.values(split.splitDetails || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
+
                 return (
-                  <View key={split.id}>
+                  <View key={split.id} style={isPending ? { backgroundColor: theme.colors.secondaryContainer + '40' } : {}}>
                     <List.Item
                       title={split.title}
                       titleStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                      description={friendNode ? `With ${friendNode.name}` : "Unknown Friend"}
+                      description={
+                        <View>
+                          <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+                            {isSettlement ? `Settlement with ${friendDisplayName}` : `With ${friendDisplayName}`}
+                          </Text>
+                          {isPending && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                              <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.secondary} />
+                              <Text variant="labelSmall" style={{ color: theme.colors.secondary, marginLeft: 4, fontWeight: 'bold' }}>
+                                {isPayer ? "WAITING FOR VERIFICATION" : "ACTION REQUIRED: VERIFY PAYMENT"}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      }
                       left={() => (
                         <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
-                          <Avatar.Icon size={40} icon="receipt" style={{ backgroundColor: theme.colors.primaryContainer }} color={theme.colors.primary} />
+                          <Avatar.Icon
+                            size={40}
+                            icon={isSettlement ? "handshake" : (isPayer ? "arrow-up-circle" : "arrow-down-circle")}
+                            style={{ backgroundColor: isSettlement ? theme.colors.primaryContainer : (isPayer ? theme.colors.errorContainer : theme.colors.primaryContainer) }}
+                            color={isSettlement ? theme.colors.onPrimaryContainer : (isPayer ? theme.colors.error : theme.colors.primary)}
+                          />
                         </View>
                       )}
                       right={() => (
                         <View style={{ justifyContent: 'center', marginRight: 16, alignItems: 'flex-end' }}>
                           <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>
-                            {isPayer ? "YOU LENT" : "YOU BORROWED"}
+                            {isSettlement ? "SETTLEMENT" : (isPayer ? "YOU LENT" : "YOU BORROWED")}
                           </Text>
-                          <Text variant="titleMedium" style={{ color: isPayer ? theme.colors.primary : theme.colors.error, fontWeight: 'bold' }}>
-                            {currencySymbol}{owedAmount.toFixed(2)}
-                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {isPending && !isPayer && (
+                              <IconButton 
+                                icon="check-decagram" 
+                                size={20} 
+                                mode="contained-tonal"
+                                containerColor={theme.colors.primaryContainer}
+                                iconColor={theme.colors.primary}
+                                style={{ margin: 0, marginRight: 10, alignSelf: 'center' }}
+                                onPress={() => handleConfirmSettlement(split.id)}
+                              />
+                            )}
+                            <Text variant="titleMedium" style={{
+                              color: isSettlement ? theme.colors.onSurface : (isPayer ? theme.colors.primary : theme.colors.error),
+                              fontWeight: 'bold'
+                            }}>
+                              {currencySymbol}{owedAmount.toFixed(2)}
+                            </Text>
+                          </View>
                         </View>
                       )}
                       style={{ paddingVertical: 12 }}
@@ -390,7 +473,7 @@ export default function DashboardScreen() {
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 16 }}>
               Log a new bill and split it 50/50 instantly.
             </Text>
-            
+
             <TextInput
               mode="outlined"
               label="Description"
@@ -402,7 +485,7 @@ export default function DashboardScreen() {
               left={<TextInput.Icon icon="text" />}
               error={!!expenseError && expenseError.includes("description")}
             />
-            
+
             <TextInput
               mode="outlined"
               label={`Total Cost (${currencySymbol})`}
@@ -414,7 +497,7 @@ export default function DashboardScreen() {
               left={<TextInput.Icon icon="currency-usd" />}
               error={!!expenseError && expenseError.includes("amount")}
             />
-            
+
             {/* Native Search Friend Selector Area */}
             {!selectedFriend ? (
               <View style={{ marginTop: 8 }}>
@@ -426,7 +509,7 @@ export default function DashboardScreen() {
                   style={{ marginBottom: 8, backgroundColor: 'transparent' }}
                   left={<TextInput.Icon icon="magnify" />}
                 />
-                
+
                 {friendSearchQuery.trim().length >= 3 && (
                   <View style={{ maxHeight: 140, borderRadius: 12, backgroundColor: theme.colors.elevation.level2, overflow: 'hidden' }}>
                     <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
@@ -436,8 +519,8 @@ export default function DashboardScreen() {
                         friends
                           .filter(f => f.name.toLowerCase().includes(friendSearchQuery.toLowerCase()))
                           .map(f => (
-                            <Button 
-                              key={f.id} 
+                            <Button
+                              key={f.id}
                               onPress={() => { setSelectedFriend(f); setExpenseError(""); setFriendSearchQuery(""); }}
                               contentStyle={{ justifyContent: 'flex-start', paddingVertical: 6 }}
                               textColor={theme.colors.onSurface}
@@ -453,9 +536,9 @@ export default function DashboardScreen() {
             ) : (
               <View style={{ marginTop: 8, marginBottom: 8 }}>
                 <Text variant="labelMedium" style={{ color: theme.colors.outline, marginBottom: 4 }}>Splitting with:</Text>
-                <Button 
-                  mode="outlined" 
-                  onPress={() => setSelectedFriend(null)} 
+                <Button
+                  mode="outlined"
+                  onPress={() => setSelectedFriend(null)}
                   icon="close"
                   contentStyle={{ justifyContent: 'space-between', flexDirection: 'row-reverse' }}
                   style={{ borderColor: theme.colors.primary, borderWidth: 2 }}
@@ -464,7 +547,7 @@ export default function DashboardScreen() {
                 </Button>
               </View>
             )}
-            
+
             {expenseError ? (
               <HelperText type="error" visible={!!expenseError} style={{ paddingHorizontal: 0 }}>
                 {expenseError}
@@ -473,10 +556,10 @@ export default function DashboardScreen() {
           </Dialog.Content>
           <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
             <Button onPress={dismissExpense} textColor={theme.colors.outline}>Cancel</Button>
-            <Button 
-              mode="contained" 
-              onPress={handleAddExpense} 
-              loading={isAddingExpense} 
+            <Button
+              mode="contained"
+              onPress={handleAddExpense}
+              loading={isAddingExpense}
               disabled={isAddingExpense}
               style={{ borderRadius: 12, marginLeft: 8 }}
             >
@@ -492,7 +575,7 @@ export default function DashboardScreen() {
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 16 }}>
               Create a local "Ghost" profile to start splitting bills immediately.
             </Text>
-            
+
             <TextInput
               mode="outlined"
               label="Friend's Name"
@@ -503,7 +586,7 @@ export default function DashboardScreen() {
               left={<TextInput.Icon icon="account" />}
               error={!!addFriendError && addFriendError.includes("Name")}
             />
-            
+
             <TextInput
               mode="outlined"
               label="Email Address (Optional)"
@@ -514,7 +597,7 @@ export default function DashboardScreen() {
               style={{ marginBottom: 8, backgroundColor: 'transparent' }}
               left={<TextInput.Icon icon="email" />}
             />
-            
+
             {addFriendError ? (
               <HelperText type="error" visible={!!addFriendError} style={{ paddingHorizontal: 0 }}>
                 {addFriendError}
@@ -523,10 +606,10 @@ export default function DashboardScreen() {
           </Dialog.Content>
           <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
             <Button onPress={dismissFriend} textColor={theme.colors.outline}>Cancel</Button>
-            <Button 
-              mode="contained" 
-              onPress={handleAddFriend} 
-              loading={isAddingFriend} 
+            <Button
+              mode="contained"
+              onPress={handleAddFriend}
+              loading={isAddingFriend}
               disabled={isAddingFriend}
               style={{ borderRadius: 12, marginLeft: 8 }}
             >
