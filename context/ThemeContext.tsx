@@ -10,6 +10,8 @@ interface ThemeContextType {
   colorScheme: "light" | "dark";
   toastMessage: string | null;
   setToastMessage: (msg: string | null) => void;
+  confettiTrigger: number;
+  triggerConfetti: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({} as ThemeContextType);
@@ -28,6 +30,7 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
   
   const [themePreference, setThemeState] = useState<ThemePreference>("system");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [confettiTrigger, setConfettiTrigger] = useState(0);
 
   useEffect(() => {
     if (!isLoading && storedPreference) {
@@ -41,10 +44,22 @@ export const AppThemeProvider = ({ children }: { children: React.ReactNode }) =>
     setToastMessage(`Theme applied: ${pref.charAt(0).toUpperCase() + pref.slice(1)}`);
   };
 
+  const triggerConfetti = () => {
+    setConfettiTrigger(prev => prev + 1);
+  };
+
   const colorScheme = themePreference === "system" ? deviceColorScheme : themePreference;
 
   return (
-    <ThemeContext.Provider value={{ themePreference, setThemePreference, colorScheme, toastMessage, setToastMessage }}>
+    <ThemeContext.Provider value={{ 
+      themePreference, 
+      setThemePreference, 
+      colorScheme, 
+      toastMessage, 
+      setToastMessage,
+      confettiTrigger,
+      triggerConfetti
+    }}>
       {children}
     </ThemeContext.Provider>
   );

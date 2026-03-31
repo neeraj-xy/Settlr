@@ -14,7 +14,7 @@ export default function ActivityScreen() {
   const theme = useTheme();
   const { user, profile } = useSession();
   const { currencySymbol } = useCurrencyContext();
-  const { setToastMessage } = useThemeContext();
+  const { setToastMessage, triggerConfetti } = useThemeContext();
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
 
   const [splits, setSplits] = useState<SplitDocument[]>([]);
@@ -51,6 +51,7 @@ export default function ActivityScreen() {
     try {
       await confirmSettlement(splitId, user.uid);
       setToastMessage("Payment Verified! Balance updated. 🤝");
+      triggerConfetti();
       // Reload splits using fresh data
       const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
       setFriends(fetchedFriends);
@@ -98,10 +99,12 @@ export default function ActivityScreen() {
       
       if (isReceiving) {
         setToastMessage(`Acknowledged payment from ${settleTarget.name}! 🤝`);
+        triggerConfetti();
       } else if (isPending) {
         setToastMessage(`Settlement request sent to ${settleTarget.name}! 🤝`);
       } else {
         setToastMessage(`Settled up with ${settleTarget.name}! 🎉`);
+        triggerConfetti();
       }
       setIsSettlePickerVisible(false);
       setSettleTarget(null);

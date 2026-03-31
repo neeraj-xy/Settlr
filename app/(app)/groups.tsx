@@ -14,7 +14,7 @@ export default function GroupsScreen() {
   const theme = useTheme();
   const { user, profile } = useSession();
   const { currencySymbol } = useCurrencyContext();
-  const { setToastMessage } = useThemeContext();
+  const { setToastMessage, triggerConfetti } = useThemeContext();
   const displayName = profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest";
 
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -52,10 +52,12 @@ export default function GroupsScreen() {
       
       if (isReceiving) {
         setToastMessage(`Acknowledged payment from ${settleTarget.name}! 🤝`);
+        triggerConfetti();
       } else if (isPending) {
         setToastMessage(`Settlement request sent to ${settleTarget.name}! 🤝`);
       } else {
         setToastMessage(`Settled up with ${settleTarget.name}! 🎉`);
+        triggerConfetti();
       }
       dismissSettle();
       loadFriends();
@@ -71,6 +73,7 @@ export default function GroupsScreen() {
     try {
       await confirmSettlement(splitId, user.uid);
       setToastMessage("Payment Verified! Balance updated. 🤝");
+      triggerConfetti();
       loadFriends();
     } catch (err) {
       console.error("Confirmation Error:", err);

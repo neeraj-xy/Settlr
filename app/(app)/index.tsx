@@ -12,7 +12,7 @@ import { createPeerSplit, getUserSplits, SplitDocument, settleUp, confirmSettlem
 
 export default function DashboardScreen() {
   const { user, profile } = useSession();
-  const { setToastMessage } = useThemeContext();
+  const { setToastMessage, triggerConfetti } = useThemeContext();
   const { currencySymbol } = useCurrencyContext();
   const theme = useTheme();
 
@@ -225,10 +225,12 @@ export default function DashboardScreen() {
       
       if (isReceiving) {
         setToastMessage(`Acknowledged payment from ${name}! 🤝`);
+        triggerConfetti();
       } else if (isPending) {
         setToastMessage(`Settlement request sent to ${name}! 🤝`);
       } else {
         setToastMessage(`Settled up with ${name}! 🎉`);
+        triggerConfetti();
       }
       loadDashboardData();
     } catch (err) {
@@ -243,6 +245,7 @@ export default function DashboardScreen() {
     try {
       await confirmSettlement(splitId, user.uid);
       setToastMessage("Payment Verified! Balance updated. 🤝");
+      triggerConfetti();
       loadDashboardData();
     } catch (err) {
       console.error("Confirmation Error:", err);
