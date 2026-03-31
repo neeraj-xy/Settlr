@@ -258,12 +258,16 @@ export default function DashboardScreen() {
   const totalYouOwe = friends.filter(f => f.totalBalance < 0).reduce((sum, f) => sum + Math.abs(f.totalBalance), 0);
   const totalYouAreOwed = friends.filter(f => f.totalBalance > 0).reduce((sum, f) => sum + f.totalBalance, 0);
   const totalBalance = totalYouAreOwed - totalYouOwe;
+  const getBalanceColor = () => {
+    if (totalBalance > 0) return '#4CAF50'; // Positive: Green
+    if (totalBalance < -50) return theme.colors.error; // Large debt: Red
+    if (totalBalance < 0) return '#FF9800'; // Small debt: Amber
+    return theme.colors.onPrimaryContainer; // Neutral
+  };
 
   return (
     <>
-      {/* Due to ScreenWrapper dynamically binding to UI tracking structures internally, raw layout structures dynamically scale effortlessly independent of internal nesting! */}
       <ScreenWrapper contentContainerStyle={styles.container}>
-        {/* Header Profile Row */}
         <View style={styles.header}>
           <View>
             <Text variant="titleMedium" style={{ color: theme.colors.outline }}>Welcome back,</Text>
@@ -277,12 +281,11 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* Primary Top-level Financial Metric Card */}
         <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer }]}>
           <View style={styles.balanceRow}>
             <View>
               <Text variant="titleMedium" style={{ color: theme.colors.onPrimaryContainer, opacity: 0.8 }}>Total Balance</Text>
-              <Text variant="displayLarge" style={{ color: theme.colors.onPrimaryContainer, fontWeight: '900', marginTop: 0 }}>
+              <Text variant="displayLarge" style={{ color: getBalanceColor(), fontWeight: '900', marginTop: 0 }}>
                 {currencySymbol}{Math.abs(totalBalance).toFixed(2)}
               </Text>
             </View>
