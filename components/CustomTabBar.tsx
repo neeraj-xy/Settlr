@@ -98,7 +98,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const bottomPadding = insets.bottom > 0 ? insets.bottom : 12;
 
   const glassBg = theme.dark ? "rgba(18, 18, 18, 0.7)" : "rgba(255, 255, 255, 0.7)";
-  const borderColor = theme.dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+  const borderColor = theme.colors.outline;
 
   const tabContent = (
     <View style={[styles.tabRow, { paddingBottom: bottomPadding }]}>
