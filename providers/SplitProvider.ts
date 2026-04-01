@@ -116,7 +116,8 @@ export async function settleUp(
   payerName?: string,
   payerEmail?: string,
   friendName?: string,
-  isAcknowledgeReceipt?: boolean
+  isAcknowledgeReceipt?: boolean,
+  contextTitle?: string
 ): Promise<void> {
   try {
     const settlementDoc = doc(collection(db, "splits"));
@@ -141,7 +142,7 @@ export async function settleUp(
     const status = (isGhost || isAcknowledgeReceipt) ? "completed" : "pending";
 
     await setDoc(settlementDoc, {
-      title: status === "pending" ? "Settlement Request" : "Settled Up",
+      title: contextTitle ? `Settled: ${contextTitle}` : (status === "pending" ? "Settlement Request" : "Settled Up"),
       totalAmount: settleAmount,
       payerId: currentUserId,
       payerName: payerName || "Someone",

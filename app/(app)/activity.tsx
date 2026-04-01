@@ -91,12 +91,13 @@ export default function ActivityScreen() {
         profile?.displayName || user.displayName || user.email?.split("@")[0] || "Someone",
         user.email || undefined,
         settleTarget.name,
-        (settleTarget.totalBalance || 0) > 0
+        (settleTarget.totalBalance || 0) > 0,
+        settleTarget.contextTitle
       );
-      
+
       const isReceiving = (settleTarget.totalBalance || 0) > 0;
       const isPending = !!settleTarget.linkedUserId && !isReceiving;
-      
+
       if (isReceiving) {
         setToastMessage(`Acknowledged payment from ${settleTarget.name}! 🤝`);
         triggerConfetti();
@@ -108,7 +109,7 @@ export default function ActivityScreen() {
       }
       setIsSettlePickerVisible(false);
       setSettleTarget(null);
-      
+
       // Reload splits
       const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
       setFriends(fetchedFriends);
@@ -121,6 +122,8 @@ export default function ActivityScreen() {
       setIsSettling(false);
     }
   };
+
+  const seenFriendsForHandshake = new Set<string>();
 
   return (
     <ScreenWrapper contentContainerStyle={styles.container} scrollEnabled={false}>
@@ -200,10 +203,30 @@ export default function ActivityScreen() {
               const isSettlement = split.type === "settlement";
               const isPending = split.status === "pending";
 
+              // Real-time local evaluation: Check if any split in the current feed is a pending settlement for this specific friend
+              const hasActivePendingForFriend = splits.some(s =>
+                s.type === "settlement" &&
+                s.status === "pending" &&
+                s.friendId === split.friendId
+              );
+
               const friendDisplayName = friendNode ? friendNode.name : (isPayer ? split.friendName : split.payerName) || (isPayer ? "Friend" : "Someone");
 
               // Robust amount lookup: sum splitDetails for peer splits
               const owedAmount = Object.values(split.splitDetails || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
+
+              const fid = friendNode?.id || split.friendId || "";
+              const canShowHandshake = 
+                !isSettlement && 
+                !isPending && 
+                !hasActivePendingForFriend && 
+                !friendNode?.pendingSettlement && 
+                Math.abs(friendNode?.totalBalance || 0) > 0.01 && 
+                !seenFriendsForHandshake.has(fid);
+
+              if (canShowHandshake && fid) {
+                seenFriendsForHandshake.add(fid);
+              }
 
               return (
                 <View key={split.id} style={isPending ? { backgroundColor: theme.colors.secondaryContainer + '40' } : {}}>
@@ -264,19 +287,22 @@ export default function ActivityScreen() {
                               )}
                             </>
                           )}
-                          {!isSettlement && !isPending && (
+                          {canShowHandshake && (
                             <IconButton
                               icon="handshake"
                               size={20}
                               mode="contained-tonal"
                               style={{ margin: 0, marginRight: 10 }}
                               onPress={() => {
-                                const target = friendNode || {
-                                  id: split.friendId || "",
-                                  name: friendDisplayName,
-                                  email: split.friendEmail || null,
-                                  totalBalance: owedAmount,
-                                  linkedUserId: split.linkedFriendId || null,
+                                const target = {
+                                  ...(friendNode || {
+                                    id: split.friendId || "",
+                                    name: friendDisplayName,
+                                    email: split.friendEmail || null,
+                                    totalBalance: owedAmount,
+                                    linkedUserId: split.linkedFriendId || null,
+                                  }),
+                                  contextTitle: split.title
                                 };
                                 setSettleTarget(target as any);
                                 setIsSettlePickerVisible(true);

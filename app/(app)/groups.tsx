@@ -45,7 +45,8 @@ export default function GroupsScreen() {
         profile?.displayName || user.displayName || user.email?.split("@")[0] || "Someone",
         user.email || undefined,
         settleTarget.name,
-        settleTarget.totalBalance > 0
+        settleTarget.totalBalance > 0,
+        undefined
       );
       const isReceiving = settleTarget.totalBalance > 0;
       const isPending = !!settleTarget.linkedUserId && !isReceiving;

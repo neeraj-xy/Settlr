@@ -25,6 +25,7 @@ export interface Friend {
   };
   youOwe: number;
   youAreOwed: number;
+  contextTitle?: string;
 }
 
 export interface Friendship {
@@ -100,8 +101,26 @@ export async function getFriendships(
         if (emailTag) otherPersonEmail = emailTag.split(":")[1];
       }
 
+      // Step 3: Match by UID if email fails
+      const otherPersonUid = isPayer ? split.friendId : split.payerId;
+      
       if (otherPersonEmail) {
         pendingMap[normalizeEmail(otherPersonEmail)] = {
+          isPayer,
+          splitId: d.id
+        };
+      }
+      
+      if (otherPersonUid) {
+        pendingMap[otherPersonUid] = {
+          isPayer,
+          splitId: d.id
+        };
+      }
+
+      // Step 4: Backup - Match by friendId (friendship doc ID)
+      if (split.friendId) {
+        pendingMap[split.friendId] = {
           isPayer,
           splitId: d.id
         };
@@ -121,18 +140,19 @@ export async function getFriendships(
       totalOwed += gross.owed || 0;
 
       const otherEmailKey = normalizeEmail(otherEmail);
+      const otherUid = data.uids.find((u: string) => u !== currentUserId) || null;
 
       friends.push({
         id: docSnap.id,
         name: data.names[otherEmail] || "Friend",
         email: otherEmail,
-        linkedUserId: data.uids.find((u: string) => u !== currentUserId) || null,
+        linkedUserId: otherUid,
         mirrorFriendDocId: null,
         totalBalance: balance,
         youOwe: gross.owe || 0,
         youAreOwed: gross.owed || 0,
         createdAt: data.createdAt,
-        pendingSettlement: pendingMap[otherEmailKey],
+        pendingSettlement: pendingMap[otherEmailKey] || (otherUid ? pendingMap[otherUid] : undefined) || pendingMap[docSnap.id],
       });
     });
 
