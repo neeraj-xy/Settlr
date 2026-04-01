@@ -4,11 +4,13 @@ import { useCurrencyContext } from "@/context/CurrencyContext";
 import { router, useFocusEffect } from "expo-router";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { View, StyleSheet, ScrollView, Animated, TouchableOpacity } from "react-native";
-import { useTheme, Text, FAB, Avatar, IconButton, Portal, Dialog, TextInput, Button, HelperText, ActivityIndicator, List, Divider } from "react-native-paper";
+import { useTheme, Text, FAB, Avatar, IconButton, Portal, Dialog, TextInput, Button, HelperText, ActivityIndicator, List, Divider, SegmentedButtons } from "react-native-paper";
 import ScreenWrapper from "@/components/ScreenWrapper";
+import ActivityFeed from "@/components/ActivityFeed";
+import SettleUpModal from "@/components/SettleUpModal";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Friend, getFriendships, addGhostFriend } from "@/providers/FriendProvider";
-import { createPeerSplit, getUserSplits, SplitDocument, settleUp, confirmSettlement, cancelSettlement } from "@/providers/SplitProvider";
+import { createPeerSplit, getUserSplits, SplitDocument, settleUp, deleteSplit } from "@/providers/SplitProvider";
 
 export default function DashboardScreen() {
   const { user, profile } = useSession();
@@ -32,11 +34,15 @@ export default function DashboardScreen() {
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [expenseError, setExpenseError] = useState("");
 
+  // Split details state
+  const [splitMethod, setSplitMethod] = useState<'equally' | 'unequally' | 'percentages' | 'shares'>('equally');
+  const [myPortion, setMyPortion] = useState("");
+  const [friendPortion, setFriendPortion] = useState("");
+
   // Settle Up state — visibility decoupled from data to prevent flash
   const [isSettlePickerVisible, setIsSettlePickerVisible] = useState(false);
   const [isSettleStep2Open, setIsSettleStep2Open] = useState(false);
   const [settleTarget, setSettleTarget] = useState<Friend | null>(null);
-  const [isSettling, setIsSettling] = useState(false);
 
   // --- Dismiss helpers: close first, clear data after animation ---
   const dismissExpense = () => {
@@ -47,6 +53,9 @@ export default function DashboardScreen() {
       setSelectedFriend(null);
       setFriendSearchQuery("");
       setExpenseError("");
+      setSplitMethod("equally");
+      setMyPortion("");
+      setFriendPortion("");
     }, 300);
   };
 
@@ -59,14 +68,16 @@ export default function DashboardScreen() {
     }, 300);
   };
 
-  const dismissSettle = () => {
+  const dismissSettlePicker = () => {
     setIsSettlePickerVisible(false);
-    setIsSettleStep2Open(false);  // close step 2 independently
-    setTimeout(() => setSettleTarget(null), 350); // clear AFTER animation
+    setTimeout(() => {
+      setSettleTarget(null);
+    }, 350);
   };
 
   const openSettleStep2 = (friend: Friend) => {
     setSettleTarget(friend);
+    setIsSettlePickerVisible(false);
     setIsSettleStep2Open(true);
   };
 
@@ -168,6 +179,36 @@ export default function DashboardScreen() {
       setExpenseError("Please select a friend to split with.");
       return;
     }
+
+    let friendShareAmount = amountFloat / 2;
+
+    if (splitMethod === 'unequally') {
+      const myAmt = parseFloat(myPortion || "0");
+      const fAmt = parseFloat(friendPortion || "0");
+      if (Math.abs((myAmt + fAmt) - amountFloat) > 0.01) {
+        setExpenseError(`Amounts must perfectly sum to ${currencySymbol}${amountFloat.toFixed(2)}`);
+        return;
+      }
+      friendShareAmount = fAmt;
+    } else if (splitMethod === 'percentages') {
+      const myPct = parseFloat(myPortion || "0");
+      const fPct = parseFloat(friendPortion || "0");
+      if (Math.abs((myPct + fPct) - 100) > 0.01) {
+        setExpenseError("Percentages must sum to 100");
+        return;
+      }
+      friendShareAmount = amountFloat * (fPct / 100);
+    } else if (splitMethod === 'shares') {
+      const mySh = parseFloat(myPortion || "0");
+      const fSh = parseFloat(friendPortion || "0");
+      const totalShares = mySh + fSh;
+      if (totalShares <= 0) {
+        setExpenseError("Total shares must be greater than 0");
+        return;
+      }
+      friendShareAmount = amountFloat * (fSh / totalShares);
+    }
+
     if (!user) return;
 
     setIsAddingExpense(true);
@@ -185,9 +226,11 @@ export default function DashboardScreen() {
         friendEmail: friendSnap!.email,
         linkedFriendId: friendSnap!.linkedUserId ?? undefined,
         mirrorFriendDocId: friendSnap!.mirrorFriendDocId ?? undefined,
+        friendShareAmount,
       });
       dismissExpense(); // Close first, clear after animation
-      setToastMessage(`Added ${currencySymbol}${amountFloat.toFixed(2)} for ${titleSnap}. ${friendSnap!.name} owes you half!`);
+      const diffWord = friendShareAmount === amountFloat / 2 ? "half" : `${currencySymbol}${friendShareAmount.toFixed(2)}`;
+      setToastMessage(`Added ${currencySymbol}${amountFloat.toFixed(2)} for ${titleSnap}. ${friendSnap!.name} owes you ${diffWord}!`);
       loadDashboardData();
     } catch (err: any) {
       console.error("Split Error:", err);
@@ -202,65 +245,16 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleSettleUp = async () => {
-    if (!settleTarget || !user) return;
-    setIsSettling(true);
-    try {
-      const name = settleTarget.name;
-      await settleUp(
-        user.uid,
-        settleTarget.id,
-        Math.abs(settleTarget.totalBalance),
-        settleTarget.linkedUserId ?? undefined,
-        settleTarget.mirrorFriendDocId ?? undefined,
-        settleTarget.email,
-        profile?.displayName || user.displayName || user.email?.split("@")[0] || "Someone",
-        user.email || undefined,
-        settleTarget.name,
-        settleTarget.totalBalance > 0,
-        settleTarget.contextTitle
-      );
-      dismissSettle();
-      const isReceiving = settleTarget.totalBalance > 0;
-      const isPending = !!settleTarget.linkedUserId && !isReceiving;
 
-      if (isReceiving) {
-        setToastMessage(`Acknowledged payment from ${name}! 🤝`);
-        triggerConfetti();
-      } else if (isPending) {
-        setToastMessage(`Settlement request sent to ${name}! 🤝`);
-      } else {
-        setToastMessage(`Settled up with ${name}! 🎉`);
-        triggerConfetti();
-      }
-      loadDashboardData();
-    } catch (err) {
-      console.error("Settle Error:", err);
-    } finally {
-      setIsSettling(false);
-    }
-  };
 
-  const handleConfirmSettlement = async (splitId: string) => {
+  const handleDeleteSplit = async (splitId: string) => {
     if (!user) return;
     try {
-      await confirmSettlement(splitId, user.uid);
-      setToastMessage("Payment Verified! Balance updated. 🤝");
-      triggerConfetti();
+      await deleteSplit(splitId);
+      setToastMessage("Record deleted.");
       loadDashboardData();
     } catch (err) {
-      console.error("Confirmation Error:", err);
-    }
-  };
-
-  const handleCancelSettlement = async (splitId: string) => {
-    if (!user) return;
-    try {
-      await cancelSettlement(splitId);
-      setToastMessage("Settlement canceled.");
-      loadDashboardData();
-    } catch (err) {
-      console.error("Cancellation Error:", err);
+      console.error("Deletion Error:", err);
     }
   };
 
@@ -277,8 +271,6 @@ export default function DashboardScreen() {
     if (totalBalance < 0) return '#FF9800'; // Small debt: Amber
     return theme.colors.onPrimaryContainer; // Neutral
   };
-
-  const seenFriendsForHandshake = new Set<string>();
 
   return (
     <>
@@ -379,148 +371,12 @@ export default function DashboardScreen() {
             </View>
           ) : (
             <View style={{ backgroundColor: theme.colors.surface, borderRadius: 24, overflow: 'hidden' }}>
-              {splits.map((split, index) => {
-                const otherParticipant = split.participants?.find((p: string) => p !== user?.uid);
-                const isPayer = split.payerId === user?.uid;
-
-                // Quadruple-Match identity resolution engine (Deep Scan)
-                const friendNode = friends.find(f => {
-                  if (f.id === split.friendId) return true;
-                  if (split.linkedFriendId && f.linkedUserId === split.linkedFriendId) return true;
-
-                  return split.participants?.some(p => {
-                    if (p === user?.uid) return false;
-                    // Check if participant is a UID we know
-                    if (f.linkedUserId === p) return true;
-                    // Check if participant is an Email we know
-                    if (p.startsWith("email:") && f.email?.toLowerCase() === p.split(":")[1].toLowerCase()) return true;
-                    return false;
-                  });
-                });
-
-                const isSettlement = split.type === "settlement";
-                const isPending = split.status === "pending";
-
-                // Real-time local evaluation: Check if any split in the current feed is a pending settlement for this specific friend
-                const hasActivePendingForFriend = splits.some(s =>
-                  s.type === "settlement" &&
-                  s.status === "pending" &&
-                  s.friendId === split.friendId
-                );
-
-                const friendDisplayName = friendNode ? friendNode.name : (isPayer ? split.friendName : split.payerName) || (isPayer ? "Friend" : "Someone");
-
-                // Robust amount lookup: sum splitDetails for peer splits
-                const owedAmount = Object.values(split.splitDetails || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
-
-                const fid = friendNode?.id || split.friendId || "";
-                const canShowHandshake = 
-                  !isSettlement && 
-                  !isPending && 
-                  !hasActivePendingForFriend && 
-                  !friendNode?.pendingSettlement && 
-                  Math.abs(friendNode?.totalBalance || 0) > 0.01 && 
-                  !seenFriendsForHandshake.has(fid);
-
-                if (canShowHandshake && fid) {
-                  seenFriendsForHandshake.add(fid);
-                }
-
-                return (
-                  <View key={split.id} style={isPending ? { backgroundColor: theme.colors.secondaryContainer + '40' } : {}}>
-                    <List.Item
-                      title={split.title}
-                      titleStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                      description={
-                        <View>
-                          <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-                            {isSettlement ? `Settlement with ${friendDisplayName}` : `With ${friendDisplayName}`}
-                          </Text>
-                          {isPending && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                              <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.secondary} />
-                              <Text variant="labelSmall" style={{ color: theme.colors.secondary, marginLeft: 4, fontWeight: 'bold' }}>
-                                {isPayer ? "WAITING FOR VERIFICATION" : "ACTION REQUIRED: VERIFY PAYMENT"}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      }
-                      left={() => (
-                        <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
-                          <Avatar.Icon
-                            size={40}
-                            icon={isSettlement ? "handshake" : (isPayer ? "arrow-up-circle" : "arrow-down-circle")}
-                            style={{ backgroundColor: isSettlement ? theme.colors.primaryContainer : (isPayer ? theme.colors.errorContainer : theme.colors.primaryContainer) }}
-                            color={isSettlement ? theme.colors.onPrimaryContainer : (isPayer ? theme.colors.error : theme.colors.primary)}
-                          />
-                        </View>
-                      )}
-                      right={() => (
-                        <View style={{ justifyContent: 'center', marginRight: 16, alignItems: 'flex-end' }}>
-                          <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>
-                            {isSettlement ? "SETTLEMENT" : (isPayer ? "YOU LENT" : "YOU BORROWED")}
-                          </Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            {isPending && (
-                              <>
-                                <IconButton
-                                  icon="close-circle-outline"
-                                  size={20}
-                                  mode="contained-tonal"
-                                  iconColor={theme.colors.error}
-                                  style={{ margin: 0, marginRight: 5 }}
-                                  onPress={() => handleCancelSettlement(split.id)}
-                                />
-                                {!isPayer && (
-                                  <IconButton
-                                    icon="check-decagram"
-                                    size={20}
-                                    mode="contained-tonal"
-                                    containerColor={theme.colors.primaryContainer}
-                                    iconColor={theme.colors.primary}
-                                    style={{ margin: 0, marginRight: 10 }}
-                                    onPress={() => handleConfirmSettlement(split.id)}
-                                  />
-                                )}
-                              </>
-                            )}
-                            {canShowHandshake && (
-                              <IconButton
-                                icon="handshake"
-                                size={20}
-                                mode="contained-tonal"
-                                style={{ margin: 0, marginRight: 10 }}
-                                onPress={() => {
-                                  const target = {
-                                    ...(friendNode || {
-                                      id: split.friendId || "",
-                                      name: friendDisplayName,
-                                      email: split.friendEmail || null,
-                                      totalBalance: owedAmount,
-                                      linkedUserId: split.linkedFriendId || null,
-                                    }),
-                                    contextTitle: split.title
-                                  };
-                                  openSettleStep2(target as any);
-                                }}
-                              />
-                            )}
-                            <Text variant="titleMedium" style={{
-                              color: isSettlement ? theme.colors.onSurface : (isPayer ? theme.colors.primary : theme.colors.error),
-                              fontWeight: 'bold'
-                            }}>
-                              {currencySymbol}{owedAmount.toFixed(2)}
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-                      style={{ paddingVertical: 12 }}
-                    />
-                    {index < splits.length - 1 && <Divider style={{ marginLeft: 72 }} />}
-                  </View>
-                );
-              })}
+              <ActivityFeed 
+                splits={splits} 
+                friends={friends} 
+                user={user} 
+                onDeleteSplit={handleDeleteSplit} 
+              />
             </View>
           )}
         </View>
@@ -640,6 +496,90 @@ export default function DashboardScreen() {
                 >
                   {selectedFriend.name}
                 </Button>
+
+                <Text variant="labelMedium" style={{ color: theme.colors.outline, marginTop: 16, marginBottom: 8 }}>Split Method:</Text>
+                <SegmentedButtons
+                  value={splitMethod}
+                  onValueChange={(val) => {
+                    setSplitMethod(val as any);
+                    setExpenseError("");
+                    const amountFloat = parseFloat(expenseAmount);
+                    if (val === 'shares') {
+                      setMyPortion("1");
+                      setFriendPortion("1");
+                    } else if (val === 'percentages') {
+                      setMyPortion("50");
+                      setFriendPortion("50");
+                    } else if (val === 'unequally' && !isNaN(amountFloat)) {
+                      setMyPortion((amountFloat / 2).toFixed(2));
+                      setFriendPortion((amountFloat / 2).toFixed(2));
+                    } else {
+                      setMyPortion("");
+                      setFriendPortion("");
+                    }
+                  }}
+                  buttons={[
+                    { value: 'equally', label: 'Equally' },
+                    { value: 'unequally', label: 'Amount' },
+                    { value: 'percentages', label: '%' },
+                    { value: 'shares', label: 'Shares' },
+                  ]}
+                  style={{ marginBottom: 16 }}
+                  theme={{ colors: { secondaryContainer: theme.colors.primaryContainer, onSecondaryContainer: theme.colors.primary } }}
+                />
+
+                {splitMethod !== 'equally' && (
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                    <TextInput
+                      mode="outlined"
+                      label={`You${splitMethod === 'percentages' ? ' (%)' : splitMethod === 'shares' ? ' (share)' : ` (${currencySymbol})`}`}
+                      value={myPortion}
+                      onChangeText={(text) => { 
+                        setMyPortion(text); 
+                        setExpenseError(""); 
+                        const amountFloat = parseFloat(expenseAmount);
+                        if (splitMethod === 'unequally' && text !== "" && !isNaN(amountFloat)) {
+                          const val = parseFloat(text);
+                          if (!isNaN(val) && val <= amountFloat) {
+                            setFriendPortion((Math.max(0, amountFloat - val)).toFixed(2));
+                          }
+                        } else if (splitMethod === 'percentages' && text !== "") {
+                          const val = parseFloat(text);
+                          if (!isNaN(val) && val <= 100) {
+                            setFriendPortion((Math.max(0, 100 - val)).toString());
+                          }
+                        }
+                      }}
+                      keyboardType="decimal-pad"
+                      style={{ flex: 1, backgroundColor: 'transparent' }}
+                      dense
+                    />
+                    <TextInput
+                      mode="outlined"
+                      label={`${selectedFriend.name.split(' ')[0]}${splitMethod === 'percentages' ? ' (%)' : splitMethod === 'shares' ? ' (share)' : ` (${currencySymbol})`}`}
+                      value={friendPortion}
+                      onChangeText={(text) => { 
+                        setFriendPortion(text); 
+                        setExpenseError(""); 
+                        const amountFloat = parseFloat(expenseAmount);
+                        if (splitMethod === 'unequally' && text !== "" && !isNaN(amountFloat)) {
+                          const val = parseFloat(text);
+                          if (!isNaN(val) && val <= amountFloat) {
+                            setMyPortion((Math.max(0, amountFloat - val)).toFixed(2));
+                          }
+                        } else if (splitMethod === 'percentages' && text !== "") {
+                          const val = parseFloat(text);
+                          if (!isNaN(val) && val <= 100) {
+                            setMyPortion((Math.max(0, 100 - val)).toString());
+                          }
+                        }
+                      }}
+                      keyboardType="decimal-pad"
+                      style={{ flex: 1, backgroundColor: 'transparent' }}
+                      dense
+                    />
+                  </View>
+                )}
               </View>
             )}
 
@@ -716,7 +656,7 @@ export default function DashboardScreen() {
         {/* SETTLE UP — STEP 1: Pick a Friend */}
         <Dialog
           visible={isSettlePickerVisible && !settleTarget}
-          onDismiss={dismissSettle}
+          onDismiss={dismissSettlePicker}
           style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}
         >
           <Dialog.Icon icon="handshake" />
@@ -760,37 +700,15 @@ export default function DashboardScreen() {
         </Dialog>
 
         {/* SETTLE UP — STEP 2: Confirm */}
-        <Dialog
-          visible={isSettleStep2Open}
-          onDismiss={dismissSettle}
-          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}
-        >
-          <Dialog.Icon icon="check-circle" />
-          <Dialog.Title style={{ fontWeight: 'bold', textAlign: 'center' }}>Confirm Settlement</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={{ textAlign: 'center', color: theme.colors.outline }}>
-              Clear your balance with{' '}
-              <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{settleTarget?.name}</Text>
-              {' '}of{' '}
-              <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>
-                {currencySymbol}{Math.abs(settleTarget?.totalBalance ?? 0).toFixed(2)}
-              </Text>
-              ?
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={dismissSettle} disabled={isSettling}>Back</Button>
-            <Button
-              mode="contained"
-              onPress={handleSettleUp}
-              loading={isSettling}
-              disabled={isSettling}
-              style={{ borderRadius: 12 }}
-            >
-              Confirm
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+        <SettleUpModal 
+          visible={isSettleStep2Open} 
+          onDismiss={() => {
+            setIsSettleStep2Open(false);
+            setTimeout(() => setSettleTarget(null), 300);
+          }}
+          friend={settleTarget} 
+          onSuccess={loadDashboardData} 
+        />
       </Portal>
     </>
   );

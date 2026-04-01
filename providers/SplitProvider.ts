@@ -30,7 +30,9 @@ export interface PeerSplitData {
   /** Doc ID in the linked friend's friends sub-collection pointing back to the current user */
   mirrorFriendDocId?: string;
   /** Dual-Confirmation status for settlements */
-  status?: "pending" | "completed";
+  status?: "pending" | "completed" | "deleted";
+  /** The exact calculated amount the friend owes in this split */
+  friendShareAmount?: number;
 }
 
 export interface SplitDocument extends PeerSplitData {
@@ -47,7 +49,9 @@ export interface SplitDocument extends PeerSplitData {
 export async function createPeerSplit(currentUserId: string, splitData: PeerSplitData): Promise<void> {
   const batch = writeBatch(db);
   try {
-    const splitAmount = parseFloat((splitData.totalAmount / 2).toFixed(2));
+    const splitAmount = splitData.friendShareAmount !== undefined 
+      ? parseFloat(splitData.friendShareAmount.toFixed(2))
+      : parseFloat((splitData.totalAmount / 2).toFixed(2));
 
     const participants: string[] = [currentUserId, splitData.friendId];
     if (splitData.linkedFriendId && !participants.includes(splitData.linkedFriendId)) {
@@ -137,12 +141,11 @@ export async function settleUp(
     const receiverKey = linkedFriendId || friendId;
     const isGhost = !linkedFriendId;
 
-    // Dual-Confirmation: Pending if receiver is a user (payer initiated), 
-    // Completed if ghost or if the receiver is the one acknowledging (one-click).
-    const status = (isGhost || isAcknowledgeReceipt) ? "completed" : "pending";
+    // Single-Auth: All settlements are completed instantly.
+    const status = "completed";
 
     await setDoc(settlementDoc, {
-      title: contextTitle ? `Settled: ${contextTitle}` : (status === "pending" ? "Settlement Request" : "Settled Up"),
+      title: contextTitle ? `Settled: ${contextTitle}` : "Settled Up",
       totalAmount: settleAmount,
       payerId: currentUserId,
       payerName: payerName || "Someone",
@@ -156,33 +159,35 @@ export async function settleUp(
       status, 
       date: serverTimestamp(),
       friendEmail: friendEmail || null,
+      factor: isAcknowledgeReceipt ? -1 : 1,
     });
 
-    // If completed instantly, zero out the shared ledger
-    if (status === "completed") {
-      const friendshipId = getFriendshipId(payerEmail!, friendEmail!);
-      const friendshipRef = doc(db, "friendships", friendshipId);
-      await updateDoc(friendshipRef, {
-        [`balances.${normalizeEmail(payerEmail!)}`]: 0,
-        [`balances.${normalizeEmail(friendEmail!)}`]: 0,
-        // NEW: Reset Gross totals upon settlement
-        [`grossBalances.${normalizeEmail(payerEmail!)}.owe`]: 0,
-        [`grossBalances.${normalizeEmail(payerEmail!)}.owed`]: 0,
-        [`grossBalances.${normalizeEmail(friendEmail!)}.owe`]: 0,
-        [`grossBalances.${normalizeEmail(friendEmail!)}.owed`]: 0,
-        lastUpdated: serverTimestamp(),
-      });
-    }
+    // Adjust the shared ledger continuously
+    const friendshipId = getFriendshipId(payerEmail!, friendEmail!);
+    const friendshipRef = doc(db, "friendships", friendshipId);
+    const factor = isAcknowledgeReceipt ? -1 : 1;
+
+    await updateDoc(friendshipRef, {
+      [`balances.${normalizeEmail(payerEmail!)}`]: increment(settleAmount * factor),
+      [`balances.${normalizeEmail(friendEmail!)}`]: increment(-settleAmount * factor),
+      // Reduce the gross outstanding debts dynamically
+      [`grossBalances.${normalizeEmail(payerEmail!)}.owe`]: increment(factor === 1 ? -settleAmount : 0),
+      [`grossBalances.${normalizeEmail(payerEmail!)}.owed`]: increment(factor === -1 ? -settleAmount : 0),
+      [`grossBalances.${normalizeEmail(friendEmail!)}.owe`]: increment(factor === -1 ? -settleAmount : 0),
+      [`grossBalances.${normalizeEmail(friendEmail!)}.owed`]: increment(factor === 1 ? -settleAmount : 0),
+      lastUpdated: serverTimestamp(),
+    });
   } catch (error) {
     console.error("[error settling up] ==>", error);
     throw error;
   }
 }
 
+
 /**
- * Confirms a pending settlement, officially clearing the balance.
+ * Deletes a split and reverses its continuous ledger metrics safely.
  */
-export async function confirmSettlement(splitId: string, currentUserId: string): Promise<void> {
+export async function deleteSplit(splitId: string): Promise<void> {
   const batch = writeBatch(db);
   try {
     const splitRef = doc(db, "splits", splitId);
@@ -190,45 +195,47 @@ export async function confirmSettlement(splitId: string, currentUserId: string):
     if (!snap.exists()) return;
 
     const data = snap.data();
-    if (data.type !== "settlement" || data.status !== "pending") return;
+    if (data.status === "deleted") {
+      console.warn("Attempted to delete an already deleted split!");
+      return;
+    }
 
-    // 1. Mark Settlement as Completed
-    batch.update(splitRef, { 
-      status: "completed",
-      title: "Settled Up"
+    // Reverse ledger for completed splits
+    if (data.status === "completed" && data.payerEmail && data.friendEmail) {
+      const friendshipId = getFriendshipId(data.payerEmail, data.friendEmail);
+      const friendshipRef = doc(db, "friendships", friendshipId);
+      const splitAmount = Object.values(data.splitDetails || {}).reduce((sum: number, val) => sum + (Number(val) || 0), 0) as number;
+
+      if (data.type === "expense") {
+        batch.update(friendshipRef, {
+          [`balances.${normalizeEmail(data.payerEmail)}`]: increment(-splitAmount),
+          [`balances.${normalizeEmail(data.friendEmail)}`]: increment(splitAmount),
+          [`grossBalances.${normalizeEmail(data.payerEmail)}.owed`]: increment(-splitAmount),
+          [`grossBalances.${normalizeEmail(data.friendEmail)}.owe`]: increment(-splitAmount),
+          lastUpdated: serverTimestamp(),
+        });
+      } else if (data.type === "settlement") {
+        const factor = data.factor || 1; // Fallback to 1 for older docs
+        batch.update(friendshipRef, {
+          [`balances.${normalizeEmail(data.payerEmail)}`]: increment(-splitAmount * factor),
+          [`balances.${normalizeEmail(data.friendEmail)}`]: increment(splitAmount * factor),
+          [`grossBalances.${normalizeEmail(data.payerEmail)}.owe`]: increment(factor === 1 ? splitAmount : 0),
+          [`grossBalances.${normalizeEmail(data.payerEmail)}.owed`]: increment(factor === -1 ? splitAmount : 0),
+          [`grossBalances.${normalizeEmail(data.friendEmail)}.owe`]: increment(factor === -1 ? splitAmount : 0),
+          [`grossBalances.${normalizeEmail(data.friendEmail)}.owed`]: increment(factor === 1 ? splitAmount : 0),
+          lastUpdated: serverTimestamp(),
+        });
+      }
+    }
+
+    batch.update(splitRef, {
+      status: "deleted",
+      deletedAt: serverTimestamp()
     });
-
-    // 2. Zero out the shared friendship ledger
-    const friendshipId = getFriendshipId(data.payerEmail, data.friendEmail);
-    const friendshipRef = doc(db, "friendships", friendshipId);
-    batch.update(friendshipRef, {
-      [`balances.${normalizeEmail(data.payerEmail)}`]: 0,
-      [`balances.${normalizeEmail(data.friendEmail)}`]: 0,
-      // NEW: Reset Gross totals upon settlement
-      [`grossBalances.${normalizeEmail(data.payerEmail)}.owe`]: 0,
-      [`grossBalances.${normalizeEmail(data.payerEmail)}.owed`]: 0,
-      [`grossBalances.${normalizeEmail(data.friendEmail)}.owe`]: 0,
-      [`grossBalances.${normalizeEmail(data.friendEmail)}.owed`]: 0,
-      lastUpdated: serverTimestamp(),
-    });
-
     await batch.commit();
-    console.log("[DEBUG] Settlement confirmed and shared ledger cleared!");
+    console.log("[DEBUG] Split safely soft-deleted and reversed.");
   } catch (error) {
-    console.error("[error confirming settlement] ==>", error);
-    throw error;
-  }
-}
-
-/**
- * Cancels a pending settlement by deleting the record.
- */
-export async function cancelSettlement(splitId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, "splits", splitId));
-    console.log("[DEBUG] Settlement canceled.");
-  } catch (error) {
-    console.error("[error canceling settlement] ==>", error);
+    console.error("[error deleting split] ==>", error);
     throw error;
   }
 }

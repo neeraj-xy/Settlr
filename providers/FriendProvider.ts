@@ -19,10 +19,6 @@ export interface Friend {
   totalBalance: number;
   createdAt: any;
   isDerived?: boolean;
-  pendingSettlement?: {
-    isPayer: boolean;
-    splitId: string;
-  };
   youOwe: number;
   youAreOwed: number;
   contextTitle?: string;
@@ -72,61 +68,6 @@ export async function getFriendships(
     let totalOwe = 0;
     let totalOwed = 0;
 
-    // NEW: Fetch all pending settlements for the current user to sync UI status
-    const searchTerms: string[] = [currentUserId];
-    if (userEmail) searchTerms.push(`email:${userEmail.toLowerCase().trim()}`);
-
-    const pendingQuery = query(
-      collection(db, "splits"),
-      where("participants", "array-contains-any", searchTerms),
-      where("type", "==", "settlement"),
-      where("status", "==", "pending")
-    );
-    const pendingSnap = await getDocs(pendingQuery);
-    const pendingMap: Record<string, { isPayer: boolean, splitId: string }> = {};
-
-    pendingSnap.docs.forEach(d => {
-      const split = d.data();
-      const payerEmailNormalized = split.payerEmail?.toLowerCase().trim();
-      const isPayer = split.payerId === currentUserId || (payerEmailNormalized && payerEmailNormalized === email);
-      
-      // Step 1: Try to find friend's email via explicit fields
-      let otherPersonEmail = isPayer ? split.friendEmail : split.payerEmail;
-      
-      // Step 2: Rescue logic - scan participants if explicit fields are missing (e.g. for older records)
-      if (!otherPersonEmail) {
-        const emailTag = split.participants?.find((p: string) => 
-          p.startsWith("email:") && p.toLowerCase().trim() !== `email:${email}`
-        );
-        if (emailTag) otherPersonEmail = emailTag.split(":")[1];
-      }
-
-      // Step 3: Match by UID if email fails
-      const otherPersonUid = isPayer ? split.friendId : split.payerId;
-      
-      if (otherPersonEmail) {
-        pendingMap[normalizeEmail(otherPersonEmail)] = {
-          isPayer,
-          splitId: d.id
-        };
-      }
-      
-      if (otherPersonUid) {
-        pendingMap[otherPersonUid] = {
-          isPayer,
-          splitId: d.id
-        };
-      }
-
-      // Step 4: Backup - Match by friendId (friendship doc ID)
-      if (split.friendId) {
-        pendingMap[split.friendId] = {
-          isPayer,
-          splitId: d.id
-        };
-      }
-    });
-
     snap.forEach(docSnap => {
       const data = docSnap.data() as Friendship;
       const otherEmail = data.participants.find((p: string) => p.toLowerCase().trim() !== email);
@@ -152,7 +93,6 @@ export async function getFriendships(
         youOwe: gross.owe || 0,
         youAreOwed: gross.owed || 0,
         createdAt: data.createdAt,
-        pendingSettlement: pendingMap[otherEmailKey] || (otherUid ? pendingMap[otherUid] : undefined) || pendingMap[docSnap.id],
       });
     });
 
