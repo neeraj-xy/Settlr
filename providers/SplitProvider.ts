@@ -8,6 +8,8 @@ import {
   query,
   where,
   limit,
+  orderBy,
+  startAfter,
   getDocs,
   setDoc,
   updateDoc,
@@ -248,7 +250,8 @@ export async function getUserSplits(
   userId: string, 
   manualFriends: any[], // Use any[] if Friend type not easily imported to avoid circularity
   userEmail?: string | null,
-  limitCount: number = 5
+  limitCount: number = 10,
+  lastVisible?: any
 ): Promise<SplitDocument[]> {
   try {
     const searchTerms: string[] = [userId];
@@ -256,17 +259,30 @@ export async function getUserSplits(
     if (emailTag) searchTerms.push(emailTag);
 
     // PHASE 1: Fetch splits where I am explicitly listed as a participant
-    const directQuery = query(
+    let directQuery = query(
       collection(db, "splits"),
       where("participants", "array-contains-any", searchTerms),
-      limit(50)
+      orderBy("date", "desc"),
+      limit(limitCount + 10)
     );
+    
+    if (lastVisible) {
+      directQuery = query(directQuery, startAfter(lastVisible));
+    }
+    
     const directSnap = await getDocs(directQuery);
     
     // PHASE 2: Fetch splits where my linked friends are the payer (The 'Rescue')
     const linkedFriends = (manualFriends || []).filter(f => f.linkedUserId);
     const rescuePromises = linkedFriends.map(f => {
-      return getDocs(query(collection(db, "splits"), where("payerId", "==", f.linkedUserId), limit(50)));
+      let q = query(
+        collection(db, "splits"), 
+        where("payerId", "==", f.linkedUserId), 
+        orderBy("date", "desc"), 
+        limit(limitCount + 10)
+      );
+      if (lastVisible) q = query(q, startAfter(lastVisible));
+      return getDocs(q);
     });
     const rescueSnaps = await Promise.all(rescuePromises);
     
@@ -279,7 +295,6 @@ export async function getUserSplits(
     
     rescueSnaps.forEach(snap => {
       snap.docs.forEach(docSnap => {
-        // Only include if NOT already in map AND the user is actually in this split as a Ghost
         if (!allDocsMap[docSnap.id]) {
           const data = docSnap.data();
           const payerId = data.payerId;
@@ -298,8 +313,8 @@ export async function getUserSplits(
 
     // Sort by date (descending)
     splits.sort((a, b) => {
-      const timeA = a.date?.toMillis ? a.date.toMillis() : Date.now();
-      const timeB = b.date?.toMillis ? b.date.toMillis() : Date.now();
+      const timeA = a.date?.toMillis ? a.date.toMillis() : (a.date instanceof Date ? a.date.getTime() : Date.now());
+      const timeB = b.date?.toMillis ? b.date.toMillis() : (b.date instanceof Date ? b.date.getTime() : Date.now());
       return timeB - timeA;
     });
 

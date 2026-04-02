@@ -115,7 +115,7 @@ export default function DashboardScreen() {
       const { friends: sharedFriends } = await getFriendships(user.uid, user.email);
       setFriends(sharedFriends);
 
-      const fetchedSplits = await getUserSplits(user.uid, sharedFriends, user.email);
+      const fetchedSplits = await getUserSplits(user.uid, sharedFriends, user.email, 5);
       setSplits(fetchedSplits);
     } catch (err) {
       console.error("Failed to sync dashboard analytics", err);
@@ -345,7 +345,9 @@ export default function DashboardScreen() {
         <View style={styles.activitySection}>
           <View style={styles.sectionHeader}>
             <Text variant="titleLarge" style={{ fontWeight: 'bold', color: theme.colors.onBackground }}>Recent Activity</Text>
-            <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>See all</Text>
+            <TouchableOpacity onPress={() => router.push("/activity")}>
+              <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>See all</Text>
+            </TouchableOpacity>
           </View>
 
           {isLoadingSplits ? (
@@ -371,11 +373,12 @@ export default function DashboardScreen() {
             </View>
           ) : (
             <View style={{ backgroundColor: theme.colors.surface, borderRadius: 24, overflow: 'hidden' }}>
-              <ActivityFeed 
-                splits={splits} 
-                friends={friends} 
-                user={user} 
-                onDeleteSplit={handleDeleteSplit} 
+              <ActivityFeed
+                splits={splits}
+                friends={friends}
+                user={user}
+                onDeleteSplit={handleDeleteSplit}
+                scrollEnabled={false}
               />
             </View>
           )}
@@ -534,9 +537,9 @@ export default function DashboardScreen() {
                       mode="outlined"
                       label={`You${splitMethod === 'percentages' ? ' (%)' : splitMethod === 'shares' ? ' (share)' : ` (${currencySymbol})`}`}
                       value={myPortion}
-                      onChangeText={(text) => { 
-                        setMyPortion(text); 
-                        setExpenseError(""); 
+                      onChangeText={(text) => {
+                        setMyPortion(text);
+                        setExpenseError("");
                         const amountFloat = parseFloat(expenseAmount);
                         if (splitMethod === 'unequally' && text !== "" && !isNaN(amountFloat)) {
                           const val = parseFloat(text);
@@ -558,9 +561,9 @@ export default function DashboardScreen() {
                       mode="outlined"
                       label={`${selectedFriend.name.split(' ')[0]}${splitMethod === 'percentages' ? ' (%)' : splitMethod === 'shares' ? ' (share)' : ` (${currencySymbol})`}`}
                       value={friendPortion}
-                      onChangeText={(text) => { 
-                        setFriendPortion(text); 
-                        setExpenseError(""); 
+                      onChangeText={(text) => {
+                        setFriendPortion(text);
+                        setExpenseError("");
                         const amountFloat = parseFloat(expenseAmount);
                         if (splitMethod === 'unequally' && text !== "" && !isNaN(amountFloat)) {
                           const val = parseFloat(text);
@@ -700,14 +703,14 @@ export default function DashboardScreen() {
         </Dialog>
 
         {/* SETTLE UP — STEP 2: Confirm */}
-        <SettleUpModal 
-          visible={isSettleStep2Open} 
+        <SettleUpModal
+          visible={isSettleStep2Open}
           onDismiss={() => {
             setIsSettleStep2Open(false);
             setTimeout(() => setSettleTarget(null), 300);
           }}
-          friend={settleTarget} 
-          onSuccess={loadDashboardData} 
+          friend={settleTarget}
+          onSuccess={loadDashboardData}
         />
       </Portal>
     </>

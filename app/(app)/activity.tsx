@@ -21,39 +21,59 @@ export default function ActivityScreen() {
   const [splits, setSplits] = useState<SplitDocument[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
+  const loadInitialData = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
+      setFriends(fetchedFriends);
 
+      const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 20);
+      setSplits(fetchedSplits);
+      setHasMore(fetchedSplits.length === 20);
+    } catch (err) {
+      console.error("Failed to load global activity feed", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
-      async function loadActivityFeed() {
-        if (!user) return;
-        try {
-          const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
-          setFriends(fetchedFriends);
-
-          const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 10);
-          setSplits(fetchedSplits);
-        } catch (err) {
-          console.error("Failed to load global activity feed", err);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-      loadActivityFeed();
+      loadInitialData();
     }, [user])
   );
+
+  const handleLoadMore = async () => {
+    if (isFetchingMore || !hasMore || !user) return;
+
+    setIsFetchingMore(true);
+    try {
+      const lastDoc = splits[splits.length - 1];
+      const nextBatch = await getUserSplits(user.uid, friends, user.email, 20, lastDoc?.date);
+      
+      if (nextBatch.length > 0) {
+        setSplits(prev => [...prev, ...nextBatch]);
+        setHasMore(nextBatch.length === 20);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Failed to fetch more splits:", err);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  };
 
   const handleDeleteSplit = async (splitId: string) => {
     if (!user) return;
     try {
       await deleteSplit(splitId);
       setToastMessage("Record deleted.");
-      // Reload splits using fresh data
-      const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
-      setFriends(fetchedFriends);
-      const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 10);
-      setSplits(fetchedSplits);
+      loadInitialData();
     } catch (err) {
       console.error("Deletion Error:", err);
     }
@@ -112,17 +132,14 @@ export default function ActivityScreen() {
             }
           ]}
         >
-          <ScrollView
-            showsVerticalScrollIndicator={true}
-          // contentContainerStyle={{ paddingBottom: 16 }}
-          >
-            <ActivityFeed
-              splits={splits}
-              friends={friends}
-              user={user}
-              onDeleteSplit={handleDeleteSplit}
-            />
-          </ScrollView>
+          <ActivityFeed
+            splits={splits}
+            friends={friends}
+            user={user}
+            onDeleteSplit={handleDeleteSplit}
+            onLoadMore={handleLoadMore}
+            isFetchingMore={isFetchingMore}
+          />
         </View>
       )}
 
@@ -152,7 +169,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   activityContainer: {
-    maxHeight: 520, // Expands with content up to ~10 items
+    flex: 1,
     borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: 'rgba(255, 255, 255, 0.1)', // Subtle glass default
