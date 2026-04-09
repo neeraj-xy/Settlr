@@ -359,7 +359,11 @@ export default function GroupDetailScreen() {
           <Dialog.Title style={{ fontWeight: 'bold' }}>Group Balances</Dialog.Title>
           <Dialog.ScrollArea style={{ maxHeight: 400, paddingHorizontal: 0 }}>
             <ScrollView>
-              {group.members.map(member => {
+              {[...group.members].sort((a, b) => {
+                if (a.email === user?.email) return -1;
+                if (b.email === user?.email) return 1;
+                return 0;
+              }).map(member => {
                 const balance = group.balances[normalizeEmail(member.email)] || 0;
                 return (
                   <List.Item

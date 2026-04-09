@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, ScrollView, StyleSheet } from "react-native";
-import { Modal, Portal, Text, TextInput, Button, IconButton, Checkbox, SegmentedButtons, useTheme, HelperText, Avatar, Divider } from "react-native-paper";
+import { Modal, Portal, Text, TextInput, Button, IconButton, Checkbox, SegmentedButtons, useTheme, HelperText, Avatar, Divider, TouchableRipple } from "react-native-paper";
 import { Group, GroupMember } from "@/providers/GroupProvider";
 import { createGroupSplit, GroupSplitData } from "@/providers/SplitProvider";
 import { useCurrencyContext } from "@/context/CurrencyContext";
@@ -201,43 +201,59 @@ export default function AddGroupExpenseModal({
             </Text>
           </View>
 
-          {group.members.map(member => (
-            <View key={member.email} style={styles.memberRow}>
-              <Checkbox.Item
-                label={member.email === currentUser.email ? "You" : member.name}
-                status={involvedMembers[member.email] ? 'checked' : 'unchecked'}
-                onPress={() => setInvolvedMembers(prev => ({ ...prev, [member.email]: !prev[member.email] }))}
-                style={styles.checkboxItem}
-                color={theme.colors.primary}
-              />
-
-              {involvedMembers[member.email] && (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {splitMethod !== 'equally' && (
-                    <TextInput
-                      mode="outlined"
-                      dense
-                      placeholder={splitMethod === 'percentages' ? "%" : splitMethod === 'shares' ? "1" : "0.00"}
-                      value={portions[member.email]}
-                      onChangeText={text => setPortions(prev => ({ ...prev, [member.email]: text }))}
-                      keyboardType="decimal-pad"
-                      style={styles.portionInput}
-                    />
-                  )}
-                  <Text 
-                    variant="labelMedium" 
-                    style={{ 
-                      width: 70, 
-                      textAlign: 'right', 
-                      color: theme.colors.outline,
-                      marginLeft: 8
-                    }}
-                  >
-                    {currencySymbol}{getCalculatedShare(member.email).toFixed(2)}
+          {React.useMemo(() => {
+            const list = [...group.members];
+            return list.sort((a, b) => {
+              if (a.email === currentUser.email) return -1;
+              if (b.email === currentUser.email) return 1;
+              return 0;
+            });
+          }, [group.members, currentUser.email]).map(member => (
+            <TouchableRipple
+              key={member.email}
+              onPress={() => setInvolvedMembers(prev => ({ ...prev, [member.email]: !prev[member.email] }))}
+              rippleColor={theme.colors.primary + '1A'}
+              style={styles.memberRipple}
+            >
+              <View style={styles.memberRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <Checkbox.Android
+                    status={involvedMembers[member.email] ? 'checked' : 'unchecked'}
+                    color={theme.colors.primary}
+                  />
+                  <Text variant="bodyLarge" style={{ marginLeft: 8 }}>
+                    {member.email === currentUser.email ? "You" : member.name}
                   </Text>
                 </View>
-              )}
-            </View>
+ 
+                {involvedMembers[member.email] && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {splitMethod !== 'equally' && (
+                      <TextInput
+                        mode="outlined"
+                        dense
+                        placeholder={splitMethod === 'percentages' ? "%" : splitMethod === 'shares' ? "1" : "0.00"}
+                        value={portions[member.email]}
+                        onChangeText={text => setPortions(prev => ({ ...prev, [member.email]: text }))}
+                        keyboardType="decimal-pad"
+                        style={styles.portionInput}
+                      />
+                    )}
+                    <Text 
+                      variant="labelMedium" 
+                      style={{ 
+                        width: 70, 
+                        textAlign: 'right', 
+                        color: theme.colors.outline,
+                        marginLeft: 8
+                      }}
+                    >
+                      {currencySymbol}{getCalculatedShare(member.email).toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableRipple>
           ))}
 
           {error ? <HelperText type="error" visible style={{ marginTop: 10 }}>{error}</HelperText> : null}
@@ -291,14 +307,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
   },
+  memberRipple: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  checkboxItem: {
-    flex: 1,
-    paddingHorizontal: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   portionInput: {
     width: 80,
