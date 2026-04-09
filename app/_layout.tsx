@@ -122,10 +122,10 @@ function RootNavigation() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar 
-        style={colorScheme === "dark" ? "light" : "dark"} 
-        translucent 
-        backgroundColor="transparent" 
+      <StatusBar
+        style={colorScheme === "dark" ? "light" : "dark"}
+        translucent
+        backgroundColor="transparent"
       />
       {!isReady ? (
         <View style={{
@@ -184,11 +184,11 @@ function RootNavigation() {
 export default function Root() {
   return (
     <AppThemeProvider>
-      <CurrencyProvider>
-        <SessionProvider>
+      <SessionProvider>
+        <CurrencyProvider>
           <RootNavigation />
-        </SessionProvider>
-      </CurrencyProvider>
+        </CurrencyProvider>
+      </SessionProvider>
     </AppThemeProvider>
   );
 }
