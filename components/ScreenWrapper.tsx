@@ -1,5 +1,4 @@
-import React from 'react';
-import { StyleSheet, ViewStyle, View, StyleProp } from 'react-native';
+import { StyleSheet, ViewStyle, View, StyleProp, Platform, ScrollView } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,27 +28,32 @@ export default function ScreenWrapper({
 }: ScreenWrapperProps) {
   const theme = useTheme();
 
+  // Use standard ScrollView on Web to ensure native mobile browser scrolling works correctly.
+  // Native platforms (iOS/Android) continue to use KeyboardAwareScrollView for smart layout handling.
+  const ScrollComponent = Platform.OS === 'web' ? ScrollView : KeyboardAwareScrollView;
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       
       {variant === 'auth' ? <GridBackground /> : <AppGridBackground />}
 
       {scrollEnabled ? (
-        <KeyboardAwareScrollView
+        <ScrollComponent
           style={styles.container}
           contentContainerStyle={[
             styles.scrollContent,
             contentContainerStyle,
           ]}
           keyboardShouldPersistTaps="handled"
-          bottomOffset={20}
           onScroll={onScroll}
           scrollEventThrottle={16}
+          // KeyboardAwareScrollView and ScrollView share these props, but we pass them conditionally for cleaner web code
+          {...(Platform.OS !== 'web' ? { bottomOffset: 20 } : {})}
         >
           <View style={styles.responsiveClamp}>
             {children}
           </View>
-        </KeyboardAwareScrollView>
+        </ScrollComponent>
       ) : (
         <View style={[styles.container, contentContainerStyle]}>
           <View style={styles.responsiveClamp}>
