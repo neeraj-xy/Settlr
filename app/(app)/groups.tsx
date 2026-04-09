@@ -113,9 +113,9 @@ export default function GroupsScreen() {
                               icon="handshake"
                               mode="contained-tonal"
                               size={20}
-                              onPress={() => { 
-                                setSettleTarget(friend); 
-                                setIsSettleOpen(true); 
+                              onPress={() => {
+                                setSettleTarget(friend);
+                                setIsSettleOpen(true);
                               }}
                               style={{ margin: 0 }}
                             />
@@ -168,8 +168,8 @@ export default function GroupsScreen() {
 
       <View style={styles.sectionHeader}>
         <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>My Groups</Text>
-        <Button 
-          mode="text" 
+        <Button
+          mode="text"
           onPress={() => setIsCreateGroupVisible(true)}
           icon="plus"
         >
@@ -199,8 +199,8 @@ export default function GroupsScreen() {
                         </View>
                       )}
                       right={props => (
-                        <View style={{ justifyContent: 'center', marginRight: 16, alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
-                          <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <View style={{ justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
+                          {/* <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
                             <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>YOUR BALANCE</Text>
                             <Text
                               variant="titleMedium"
@@ -211,7 +211,7 @@ export default function GroupsScreen() {
                             >
                               {currencySymbol}{Math.abs(myBalance).toFixed(2)}
                             </Text>
-                          </View>
+                          </View> */}
                           <IconButton icon="chevron-right" onPress={() => router.push(`/group/${group.id}`)} />
                         </View>
                       )}
@@ -244,9 +244,9 @@ export default function GroupsScreen() {
           <Text variant="bodyLarge" style={{ color: theme.colors.outline, textAlign: 'center', lineHeight: 28 }}>
             You aren't sharing expenses in any groups yet.{"\n"}Create one for a trip, apartment, or dinner!
           </Text>
-          <Button 
-            mode="contained" 
-            onPress={() => setIsCreateGroupVisible(true)} 
+          <Button
+            mode="contained"
+            onPress={() => setIsCreateGroupVisible(true)}
             style={{ marginTop: 20, borderRadius: 12 }}
           >
             Create Your First Group
@@ -255,11 +255,11 @@ export default function GroupsScreen() {
       )}
 
       <Portal>
-        <SettleUpModal 
-          visible={isSettleOpen} 
-          onDismiss={dismissSettle} 
-          friend={settleTarget} 
-          onSuccess={loadData} 
+        <SettleUpModal
+          visible={isSettleOpen}
+          onDismiss={dismissSettle}
+          friend={settleTarget}
+          onSuccess={loadData}
         />
         <CreateGroupModal
           visible={isCreateGroupVisible}
