@@ -17,6 +17,7 @@ import {
   deleteDoc
 } from "firebase/firestore";
 import { getFriendshipId, normalizeEmail } from "./FriendProvider";
+import { GroupMember } from "./GroupProvider";
 
 export interface PeerSplitData {
   title: string;
@@ -37,12 +38,99 @@ export interface PeerSplitData {
   friendShareAmount?: number;
 }
 
+export interface GroupSplitData {
+  groupId: string;
+  title: string;
+  totalAmount: number;
+  payerEmail: string;
+  payerName: string;
+  /** map of user email to the amount they owe in this split */
+  splitDetails: Record<string, number>;
+  participants: GroupMember[];
+}
+
 export interface SplitDocument extends PeerSplitData {
   id: string;
   date: any;
   splitDetails: Record<string, number>;
   participants: string[];
   type?: "expense" | "settlement";
+  groupId?: string;
+  status?: "pending" | "completed" | "deleted";
+}
+
+/**
+ * Executes a group split across multiple participants.
+ */
+export async function createGroupSplit(creatorId: string, data: GroupSplitData): Promise<void> {
+  const batch = writeBatch(db);
+  try {
+    const splitDocRef = doc(collection(db, "splits"));
+    const groupRef = doc(db, "groups", data.groupId);
+    const payerEmailKey = normalizeEmail(data.payerEmail);
+
+    // 1. Prepare Split Document
+    const participants = data.participants.map(p => `email:${p.email.toLowerCase().trim()}`);
+    if (!participants.includes(`email:${data.payerEmail.toLowerCase().trim()}`)) {
+       participants.push(`email:${data.payerEmail.toLowerCase().trim()}`);
+    }
+
+    batch.set(splitDocRef, {
+      groupId: data.groupId,
+      title: data.title.trim(),
+      totalAmount: data.totalAmount,
+      payerId: creatorId,
+      payerName: data.payerName,
+      payerEmail: data.payerEmail,
+      participants,
+      splitDetails: data.splitDetails,
+      type: "expense",
+      date: serverTimestamp(),
+      status: "completed",
+    });
+
+    // 2. Update Group Net Balances
+    // For the payer: balance increases by (totalAmount - their_own_share)
+    // For each participant: balance decreases by their_share
+    const payerShare = data.splitDetails[data.payerEmail] || 0;
+    const totalOthersOwe = data.totalAmount - payerShare;
+
+    batch.update(groupRef, {
+      [`balances.${payerEmailKey}`]: increment(totalOthersOwe),
+      [`grossBalances.${payerEmailKey}.owed`]: increment(totalOthersOwe),
+      lastUpdated: serverTimestamp(),
+    });
+
+    // 3. Update Individual Participants & Friendship Ledgers
+    for (const [email, amount] of Object.entries(data.splitDetails)) {
+      if (email === data.payerEmail) continue;
+
+      const memberEmailKey = normalizeEmail(email);
+      
+      // Update member's net balance in the group
+      batch.update(groupRef, {
+        [`balances.${memberEmailKey}`]: increment(-amount),
+        [`grossBalances.${memberEmailKey}.owe`]: increment(amount),
+      });
+
+      // Update the 1-on-1 friendship ledger to reflect aggregate debt
+      const friendshipId = getFriendshipId(data.payerEmail, email);
+      const friendshipRef = doc(db, "friendships", friendshipId);
+      
+      batch.update(friendshipRef, {
+        [`balances.${payerEmailKey}`]: increment(amount),
+        [`balances.${memberEmailKey}`]: increment(-amount),
+        [`grossBalances.${payerEmailKey}.owed`]: increment(amount),
+        [`grossBalances.${memberEmailKey}.owe`]: increment(amount),
+        lastUpdated: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  } catch (error) {
+    console.error("[error executing group split] ==>", error);
+    throw error;
+  }
 }
 
 /**
@@ -123,8 +211,10 @@ export async function settleUp(
   payerEmail?: string,
   friendName?: string,
   isAcknowledgeReceipt?: boolean,
-  contextTitle?: string
+  contextTitle?: string,
+  groupId?: string
 ): Promise<void> {
+  const batch = writeBatch(db);
   try {
     const settlementDoc = doc(collection(db, "splits"));
     const participants: string[] = [currentUserId, friendId];
@@ -141,12 +231,9 @@ export async function settleUp(
     }
 
     const receiverKey = linkedFriendId || friendId;
-    const isGhost = !linkedFriendId;
-
-    // Single-Auth: All settlements are completed instantly.
     const status = "completed";
 
-    await setDoc(settlementDoc, {
+    batch.set(settlementDoc, {
       title: contextTitle ? `Settled: ${contextTitle}` : "Settled Up",
       totalAmount: settleAmount,
       payerId: currentUserId,
@@ -162,23 +249,40 @@ export async function settleUp(
       date: serverTimestamp(),
       friendEmail: friendEmail || null,
       factor: isAcknowledgeReceipt ? -1 : 1,
+      groupId: groupId || null,
     });
 
-    // Adjust the shared ledger continuously
+    const factor = isAcknowledgeReceipt ? -1 : 1;
     const friendshipId = getFriendshipId(payerEmail!, friendEmail!);
     const friendshipRef = doc(db, "friendships", friendshipId);
-    const factor = isAcknowledgeReceipt ? -1 : 1;
 
-    await updateDoc(friendshipRef, {
+    batch.update(friendshipRef, {
       [`balances.${normalizeEmail(payerEmail!)}`]: increment(settleAmount * factor),
       [`balances.${normalizeEmail(friendEmail!)}`]: increment(-settleAmount * factor),
-      // Reduce the gross outstanding debts dynamically
       [`grossBalances.${normalizeEmail(payerEmail!)}.owe`]: increment(factor === 1 ? -settleAmount : 0),
       [`grossBalances.${normalizeEmail(payerEmail!)}.owed`]: increment(factor === -1 ? -settleAmount : 0),
       [`grossBalances.${normalizeEmail(friendEmail!)}.owe`]: increment(factor === -1 ? -settleAmount : 0),
       [`grossBalances.${normalizeEmail(friendEmail!)}.owed`]: increment(factor === 1 ? -settleAmount : 0),
       lastUpdated: serverTimestamp(),
     });
+
+    if (groupId) {
+      const groupRef = doc(db, "groups", groupId);
+      const payerEmailKey = normalizeEmail(payerEmail!);
+      const friendEmailKey = normalizeEmail(friendEmail!);
+
+      batch.update(groupRef, {
+        [`balances.${payerEmailKey}`]: increment(settleAmount * factor),
+        [`balances.${friendEmailKey}`]: increment(-settleAmount * factor),
+        [`grossBalances.${payerEmailKey}.owe`]: increment(factor === 1 ? -settleAmount : 0),
+        [`grossBalances.${payerEmailKey}.owed`]: increment(factor === -1 ? -settleAmount : 0),
+        [`grossBalances.${friendEmailKey}.owe`]: increment(factor === -1 ? -settleAmount : 0),
+        [`grossBalances.${friendEmailKey}.owed`]: increment(factor === 1 ? -settleAmount : 0),
+        lastUpdated: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
   } catch (error) {
     console.error("[error settling up] ==>", error);
     throw error;
@@ -203,30 +307,95 @@ export async function deleteSplit(splitId: string): Promise<void> {
     }
 
     // Reverse ledger for completed splits
-    if (data.status === "completed" && data.payerEmail && data.friendEmail) {
-      const friendshipId = getFriendshipId(data.payerEmail, data.friendEmail);
-      const friendshipRef = doc(db, "friendships", friendshipId);
+    if (data.status === "completed") {
       const splitAmount = Object.values(data.splitDetails || {}).reduce((sum: number, val) => sum + (Number(val) || 0), 0) as number;
 
-      if (data.type === "expense") {
-        batch.update(friendshipRef, {
-          [`balances.${normalizeEmail(data.payerEmail)}`]: increment(-splitAmount),
-          [`balances.${normalizeEmail(data.friendEmail)}`]: increment(splitAmount),
-          [`grossBalances.${normalizeEmail(data.payerEmail)}.owed`]: increment(-splitAmount),
-          [`grossBalances.${normalizeEmail(data.friendEmail)}.owe`]: increment(-splitAmount),
-          lastUpdated: serverTimestamp(),
-        });
-      } else if (data.type === "settlement") {
-        const factor = data.factor || 1; // Fallback to 1 for older docs
-        batch.update(friendshipRef, {
-          [`balances.${normalizeEmail(data.payerEmail)}`]: increment(-splitAmount * factor),
-          [`balances.${normalizeEmail(data.friendEmail)}`]: increment(splitAmount * factor),
-          [`grossBalances.${normalizeEmail(data.payerEmail)}.owe`]: increment(factor === 1 ? splitAmount : 0),
-          [`grossBalances.${normalizeEmail(data.payerEmail)}.owed`]: increment(factor === -1 ? splitAmount : 0),
-          [`grossBalances.${normalizeEmail(data.friendEmail)}.owe`]: increment(factor === -1 ? splitAmount : 0),
-          [`grossBalances.${normalizeEmail(data.friendEmail)}.owed`]: increment(factor === 1 ? splitAmount : 0),
-          lastUpdated: serverTimestamp(),
-        });
+      // Handle 1-on-1 direct splits (Legacy/Peer)
+      if (data.payerEmail && data.friendEmail && !data.groupId) {
+        const friendshipId = getFriendshipId(data.payerEmail, data.friendEmail);
+        const friendshipRef = doc(db, "friendships", friendshipId);
+
+        if (data.type === "expense") {
+          batch.update(friendshipRef, {
+            [`balances.${normalizeEmail(data.payerEmail)}`]: increment(-splitAmount),
+            [`balances.${normalizeEmail(data.friendEmail)}`]: increment(splitAmount),
+            [`grossBalances.${normalizeEmail(data.payerEmail)}.owed`]: increment(-splitAmount),
+            [`grossBalances.${normalizeEmail(data.friendEmail)}.owe`]: increment(-splitAmount),
+            lastUpdated: serverTimestamp(),
+          });
+        } else if (data.type === "settlement") {
+          const factor = data.factor || 1;
+          batch.update(friendshipRef, {
+            [`balances.${normalizeEmail(data.payerEmail)}`]: increment(-splitAmount * factor),
+            [`balances.${normalizeEmail(data.friendEmail)}`]: increment(splitAmount * factor),
+            [`grossBalances.${normalizeEmail(data.payerEmail)}.owe`]: increment(factor === 1 ? splitAmount : 0),
+            [`grossBalances.${normalizeEmail(data.payerEmail)}.owed`]: increment(factor === -1 ? splitAmount : 0),
+            [`grossBalances.${normalizeEmail(data.friendEmail)}.owe`]: increment(factor === -1 ? splitAmount : 0),
+            [`grossBalances.${normalizeEmail(data.friendEmail)}.owed`]: increment(factor === 1 ? splitAmount : 0),
+            lastUpdated: serverTimestamp(),
+          });
+        }
+      }
+
+      // Handle Group Reversals
+      if (data.groupId) {
+        const groupRef = doc(db, "groups", data.groupId);
+        const payerEmailKey = normalizeEmail(data.payerEmail);
+
+        if (data.type === "expense") {
+          // Reverse group ledger for multi-person expense
+          const payerShare = data.splitDetails[data.payerEmail] || 0;
+          const othersOwedToPayer = data.totalAmount - payerShare;
+
+          batch.update(groupRef, {
+             [`balances.${payerEmailKey}`]: increment(-othersOwedToPayer),
+             [`grossBalances.${payerEmailKey}.owed`]: increment(-othersOwedToPayer),
+          });
+
+          for (const [email, amountVal] of Object.entries(data.splitDetails)) {
+            if (email === data.payerEmail) continue;
+            const amount = amountVal as number;
+            const mKey = normalizeEmail(email);
+            batch.update(groupRef, {
+              [`balances.${mKey}`]: increment(amount),
+              [`grossBalances.${mKey}.owe`]: increment(-amount),
+            });
+            
+            // Mirror reverse in friendships for EVERY person
+            const friendshipId = getFriendshipId(data.payerEmail, email);
+            const friendshipRef = doc(db, "friendships", friendshipId);
+            batch.update(friendshipRef, {
+              [`balances.${payerEmailKey}`]: increment(-amount),
+              [`balances.${mKey}`]: increment(amount),
+              [`grossBalances.${payerEmailKey}.owed`]: increment(-amount),
+              [`grossBalances.${mKey}.owe`]: increment(-amount),
+            });
+          }
+        } else if (data.type === "settlement") {
+          const factor = data.factor || 1;
+          const friendEmailKey = normalizeEmail(data.friendEmail);
+          
+          batch.update(groupRef, {
+            [`balances.${payerEmailKey}`]: increment(-splitAmount * factor),
+            [`balances.${friendEmailKey}`]: increment(splitAmount * factor),
+            [`grossBalances.${payerEmailKey}.owe`]: increment(factor === 1 ? splitAmount : 0),
+            [`grossBalances.${payerEmailKey}.owed`]: increment(factor === -1 ? splitAmount : 0),
+            [`grossBalances.${friendEmailKey}.owe`]: increment(factor === -1 ? splitAmount : 0),
+            [`grossBalances.${friendEmailKey}.owed`]: increment(factor === 1 ? splitAmount : 0),
+          });
+
+          // Also reverse friendship ledger for settlement
+          const friendshipId = getFriendshipId(data.payerEmail, data.friendEmail);
+          const friendshipRef = doc(db, "friendships", friendshipId);
+          batch.update(friendshipRef, {
+            [`balances.${payerEmailKey}`]: increment(-splitAmount * factor),
+            [`balances.${friendEmailKey}`]: increment(splitAmount * factor),
+            [`grossBalances.${payerEmailKey}.owe`]: increment(factor === 1 ? splitAmount : 0),
+            [`grossBalances.${payerEmailKey}.owed`]: increment(factor === -1 ? splitAmount : 0),
+            [`grossBalances.${friendEmailKey}.owe`]: increment(factor === -1 ? splitAmount : 0),
+            [`grossBalances.${friendEmailKey}.owed`]: increment(factor === 1 ? splitAmount : 0),
+          });
+        }
       }
     }
 

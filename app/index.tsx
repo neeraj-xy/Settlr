@@ -9,7 +9,7 @@ export default function Index() {
 
   if (isLoading) {
     return (
-      <ScreenWrapper withScrollView={false}>
+      <ScreenWrapper scrollEnabled={false}>
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator animating={true} size="large" />
         </View>

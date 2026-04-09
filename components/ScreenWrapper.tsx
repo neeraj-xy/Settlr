@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ViewStyle, View } from 'react-native';
+import { StyleSheet, ViewStyle, View, StyleProp } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,11 +8,15 @@ import AppGridBackground from './AppGridBackground';
 
 type ScreenWrapperProps = {
   children: React.ReactNode;
-  contentContainerStyle?: ViewStyle;
+  contentContainerStyle?: StyleProp<ViewStyle>;
   scrollEnabled?: boolean;
   /** 'auth'  = coin/vignette background (login, register)
    *  'app'   = clean grid background (dashboard and inner screens) — default */
   variant?: 'auth' | 'app';
+  /** Optional callback for scroll events */
+  onScroll?: (event: any) => void;
+  /** Optional children that should remain fixed (not scroll) */
+  fixedChildren?: React.ReactNode;
 };
 
 export default function ScreenWrapper({
@@ -20,6 +24,8 @@ export default function ScreenWrapper({
   contentContainerStyle,
   scrollEnabled = true,
   variant = 'app',
+  onScroll,
+  fixedChildren,
 }: ScreenWrapperProps) {
   const theme = useTheme();
 
@@ -37,6 +43,8 @@ export default function ScreenWrapper({
           ]}
           keyboardShouldPersistTaps="handled"
           bottomOffset={20}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
         >
           <View style={styles.responsiveClamp}>
             {children}
@@ -49,6 +57,8 @@ export default function ScreenWrapper({
           </View>
         </View>
       )}
+
+      {fixedChildren}
     </SafeAreaView>
   );
 }
@@ -66,8 +76,8 @@ const styles = StyleSheet.create({
   },
   responsiveClamp: {
     width: '100%',
-    maxWidth: 720,       // Strictly centralizes any UI block layout exceeding 720px automatically horizontally
-    alignSelf: 'center', // Centers the column physically on 1080p and 4k resolution targets
-    flex: 1,
+    maxWidth: 720,
+    alignSelf: 'center',
+    flexGrow: 1,
   }
 });

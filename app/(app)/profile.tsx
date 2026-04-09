@@ -140,7 +140,7 @@ export default function ProfileScreen() {
       {/* Primary Configuration Card */}
       <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer }]}>
         <View style={styles.cardHeader}>
-          <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>AUTHENTICATED IDENTITY</Text>
+          <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>USER PROFILE</Text>
           {!isEditing && (
             <IconButton icon="pencil" size={20} iconColor={theme.colors.onPrimaryContainer} onPress={() => setIsEditing(true)} />
           )}
@@ -171,15 +171,15 @@ export default function ProfileScreen() {
       </View>
 
       {/* Preferences Section */}
-      <View style={styles.sectionHeader}>
+      {/* <View style={styles.sectionHeader}>
         <Text variant="titleLarge" style={{ fontWeight: 'bold', color: theme.colors.onBackground }}>Preferences</Text>
-      </View>
+      </View> */}
 
       <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer }]}>
-        <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>THEME ENGINE</Text>
+        <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>APPEARANCE</Text>
         <ThemeToggle />
         <View style={{ height: 16 }} />
-        <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>CURRENCY SETTINGS</Text>
+        <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>CURRENCY</Text>
         <CurrencyToggle />
       </View>
 

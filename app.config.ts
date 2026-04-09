@@ -1,5 +1,5 @@
 import { ExpoConfig, ConfigContext } from "@expo/config";
-import * as dotenv from 'dotenv'; 
+import * as dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
@@ -28,6 +28,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundler: "metro",
     output: "static",
     favicon: "./assets/images/favicon.png",
+    name: "Settlr",
+    shortName: "Settlr",
+    description: "Effortless group expense tracking with AI. Scan bills, split costs instantly, and stay settled with friends.",
+    backgroundColor: "#FAFAFA",
+    themeColor: "#0A0A0A",
+    display: "standalone",
+    orientation: "portrait",
+    startUrl: "/",
   },
   plugins: [
     "expo-router",

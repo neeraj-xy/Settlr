@@ -38,29 +38,72 @@ export default function ActivityFeed({
 
   const renderItem = ({ item: split, index }: { item: SplitDocument, index: number }) => {
     const isPayer = split.payerId === user?.uid;
+    const isSettlement = split.type === "settlement";
+    const totalAmount = Number(split.totalAmount) || 0;
+    const userEmail = user?.email?.toLowerCase() || "";
+    const myShare = split.splitDetails?.[userEmail] || 0;
 
-    const friendNode = friends.find(f => {
-      if (f.id === split.friendId) return true;
-      if (split.linkedFriendId && f.linkedUserId === split.linkedFriendId) return true;
+    // 1. Determine the "impact" amount (what I lent or borrowed)
+    let owedAmount = 0;
+    if (split.groupId) {
+      // Group split
+      owedAmount = isPayer ? (totalAmount - myShare) : myShare;
+    } else {
+      // Peer split
+      owedAmount = Object.values(split.splitDetails || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
+    }
 
-      return split.participants?.some(p => {
-        if (p === user?.uid) return false;
-        if (f.linkedUserId === p) return true;
-        if (p.startsWith("email:") && f.email?.toLowerCase() === p.split(":")[1].toLowerCase()) return true;
+    // 2. Determine labels (Multi-Participant Support for Groups)
+    const involvedParticipans = split.participants?.filter(p => {
+      // Exclude yourself
+      if (p === user?.uid) return false;
+      if (p === `email:${userEmail}`) return false;
+      return true;
+    }) || [];
+
+    const participantNames = involvedParticipans.map(p => {
+      // Try to find in friends list
+      const f = friends.find(friend => {
+        if (friend.linkedUserId === p) return true;
+        if (p.startsWith("email:") && friend.email?.toLowerCase() === p.split(":")[1].toLowerCase()) return true;
         return false;
       });
+      if (f) return f.name.split(" ")[0]; // Just first names for brevity
+      if (p.startsWith("email:")) return p.split(":")[1].split("@")[0]; // Fallback to email handle
+      return "Someone";
     });
 
-    const isSettlement = split.type === "settlement";
-    const friendDisplayName = friendNode ? friendNode.name : (isPayer ? split.friendName : split.payerName) || (isPayer ? "Friend" : "Someone");
-    const owedAmount = Object.values(split.splitDetails || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
+    let friendDisplayName = "Someone";
+    if (participantNames.length === 1) {
+      friendDisplayName = participantNames[0];
+    } else if (participantNames.length === 2) {
+      friendDisplayName = `${participantNames[0]} and ${participantNames[1]}`;
+    } else if (participantNames.length > 2) {
+      friendDisplayName = `${participantNames[0]} and ${participantNames.length - 1} others`;
+    } else if (!split.groupId) {
+      // Fallback for peer splits
+      friendDisplayName = (split.friendName || split.payerName || "Friend").split(" ")[0];
+    }
+
     const isDeleted = split.status === "deleted";
+
+    // 3. Description logic
+    let activityDescription = "";
+    if (isDeleted) {
+      activityDescription = isSettlement ? `Was settlement with ${friendDisplayName}` : `Was with ${friendDisplayName}`;
+    } else if (isSettlement) {
+      activityDescription = `Settlement with ${friendDisplayName}`;
+    } else if (split.groupId) {
+      activityDescription = isPayer ? `You paid ${currencySymbol}${totalAmount.toFixed(2)}` : `${split.payerName || "Someone"} paid ${currencySymbol}${totalAmount.toFixed(2)}`;
+    } else {
+      activityDescription = `With ${friendDisplayName}`;
+    }
 
     return (
       <View key={split.id}>
         <List.Item
           onPress={() => openDetailModal(split, friendDisplayName, isPayer, owedAmount)}
-          title={isDeleted ? "Deleted Record" : split.title}
+          title={split.title}
           titleStyle={
             isDeleted 
               ? { color: theme.colors.outline, textDecorationLine: 'line-through' } 
@@ -69,10 +112,7 @@ export default function ActivityFeed({
           description={
             <View>
               <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-                {isDeleted 
-                  ? (isSettlement ? `Was Settlement with ${friendDisplayName}` : `Was with ${friendDisplayName}`)
-                  : (isSettlement ? `Settlement with ${friendDisplayName}` : `With ${friendDisplayName}`)
-                }
+                {activityDescription}
               </Text>
             </View>
           }

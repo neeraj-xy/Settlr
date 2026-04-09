@@ -89,7 +89,7 @@ export default function SplitDetailModal({
           </View>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-            <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>Your Impact</Text>
+            <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>{isPayer ? "You Lent" : "You Borrowed"}</Text>
             <Text variant="titleMedium" style={{ 
               fontWeight: 'bold', 
               color: isDeleted ? theme.colors.outline : (isPayer ? theme.colors.primary : theme.colors.error),
@@ -98,6 +98,15 @@ export default function SplitDetailModal({
               {isPayer ? "+" : "-"}{currencySymbol}{owedAmount.toFixed(2)}
             </Text>
           </View>
+
+          {split.groupId && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>Group</Text>
+              <Text variant="titleMedium" style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>
+                {split.payerName ? "Group Expense" : "Settlr Group"} {/* Generic for now as we don't have group name in split doc usually */}
+              </Text>
+            </View>
+          )}
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
             <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>{isSettlement ? "Counterparty" : "With"}</Text>

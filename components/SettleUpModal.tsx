@@ -79,7 +79,16 @@ export default function SettleUpModal({ visible, onDismiss, friend, onSuccess }:
       <Dialog
         visible={visible}
         onDismiss={onDismiss}
-        style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, maxWidth: 400, width: '90%', alignSelf: 'center' }}
+        style={{ 
+          backgroundColor: theme.colors.surface, 
+          borderRadius: 28, 
+          borderWidth: 1, 
+          borderColor: theme.colors.outline, 
+          maxWidth: 500, 
+          width: '95%', 
+          alignSelf: 'center',
+          paddingVertical: 8
+        }}
       >
         <Dialog.Icon icon="check-circle" />
         <Dialog.Title style={{ textAlign: 'center', fontWeight: 'bold' }}>Settle Up</Dialog.Title>

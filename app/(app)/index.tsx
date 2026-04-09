@@ -8,9 +8,14 @@ import { useTheme, Text, FAB, Avatar, IconButton, Portal, Dialog, TextInput, But
 import ScreenWrapper from "@/components/ScreenWrapper";
 import ActivityFeed from "@/components/ActivityFeed";
 import SettleUpModal from "@/components/SettleUpModal";
+import CreateGroupModal from "@/components/CreateGroupModal";
+import AnimatedFAB from "@/components/AnimatedFAB";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { scanReceipt } from "@/utils/receiptScanner";
 import { Friend, getFriendships, addGhostFriend } from "@/providers/FriendProvider";
 import { createPeerSplit, getUserSplits, SplitDocument, settleUp, deleteSplit } from "@/providers/SplitProvider";
+import { useDebounce } from "@/utils/debounce";
 
 export default function DashboardScreen() {
   const { user, profile } = useSession();
@@ -30,6 +35,7 @@ export default function DashboardScreen() {
   const [expenseTitle, setExpenseTitle] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
   const [friendSearchQuery, setFriendSearchQuery] = useState("");
+  const debouncedFriendSearchQuery = useDebounce(friendSearchQuery, 300);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [expenseError, setExpenseError] = useState("");
@@ -43,6 +49,7 @@ export default function DashboardScreen() {
   const [isSettlePickerVisible, setIsSettlePickerVisible] = useState(false);
   const [isSettleStep2Open, setIsSettleStep2Open] = useState(false);
   const [settleTarget, setSettleTarget] = useState<Friend | null>(null);
+  const [isCreateGroupVisible, setIsCreateGroupVisible] = useState(false);
 
   // --- Dismiss helpers: close first, clear data after animation ---
   const dismissExpense = () => {
@@ -81,26 +88,16 @@ export default function DashboardScreen() {
     setIsSettleStep2Open(true);
   };
 
-  // FAB expand-then-collapse animation on every screen focus
-  const fabLabelAnim = useRef(new Animated.Value(1)).current;
   const [isFabExpanded, setIsFabExpanded] = useState(true);
-  useFocusEffect(
-    useCallback(() => {
-      // Reset to expanded on every focus
-      fabLabelAnim.setValue(1);
-      setIsFabExpanded(true);
 
-      const timer = setTimeout(() => {
-        Animated.timing(fabLabelAnim, {
-          toValue: 0,
-          duration: 350,
-          useNativeDriver: true,
-        }).start(() => setIsFabExpanded(false));
-      }, 2500);
-
-      return () => clearTimeout(timer);
-    }, [])
-  );
+  const handleScroll = (event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    if (offsetY > 50) {
+      if (isFabExpanded) setIsFabExpanded(false);
+    } else {
+      if (!isFabExpanded) setIsFabExpanded(true);
+    }
+  };
 
   // Friends data explicitly mapped for Selector Dropdown
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -123,6 +120,60 @@ export default function DashboardScreen() {
       setIsLoadingSplits(false);
     }
   }, [user]);
+
+  const [isScanning, setIsScanning] = useState(false);
+  const [isSourcePickerVisible, setIsSourcePickerVisible] = useState(false);
+
+  const performPick = async (type: 'camera' | 'library') => {
+    setIsSourcePickerVisible(false);
+    try {
+      let result;
+      if (type === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          setToastMessage("Camera permission is required.");
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          quality: 0.5,
+          base64: true,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          setToastMessage("Gallery permission is required.");
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          allowsEditing: true,
+          quality: 0.5,
+          base64: true,
+        });
+      }
+
+      if (result.canceled || !result.assets[0].base64) return;
+
+      // 3. Process with AI
+      setIsScanning(true);
+      const { merchant, amount } = await scanReceipt(result.assets[0].base64);
+
+      // 4. Fill form and open dialog
+      setExpenseTitle(merchant);
+      setExpenseAmount(amount.toString());
+      setIsAddExpenseVisible(true);
+      setToastMessage("Receipt scanned successfully! 📸");
+    } catch (err: any) {
+      console.error("Scan Error:", err);
+      setToastMessage(err.message || "Failed to parse receipt.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleReceiptScan = () => {
+    setIsSourcePickerVisible(true);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -274,7 +325,10 @@ export default function DashboardScreen() {
 
   return (
     <>
-      <ScreenWrapper contentContainerStyle={styles.container}>
+      <ScreenWrapper
+        contentContainerStyle={styles.container}
+        onScroll={handleScroll}
+      >
         <View style={styles.header}>
           <View>
             <Text variant="titleMedium" style={{ color: theme.colors.outline }}>Welcome back,</Text>
@@ -332,11 +386,22 @@ export default function DashboardScreen() {
             <Text variant="labelMedium" style={{ fontWeight: '600' }}>Add Friend</Text>
           </View>
           <View style={styles.actionItem}>
-            <IconButton icon="receipt" mode="contained-tonal" size={32} onPress={() => { }} />
-            <Text variant="labelMedium" style={{ fontWeight: '600' }}>Receipt</Text>
+            <IconButton
+              icon="receipt"
+              mode="contained-tonal"
+              size={32}
+              onPress={handleReceiptScan}
+              disabled={isScanning}
+            />
+            <Text variant="labelMedium" style={{ fontWeight: '600' }}>Scan Bill</Text>
           </View>
           <View style={styles.actionItem}>
-            <IconButton icon="account-group" mode="contained-tonal" size={32} onPress={() => { }} />
+            <IconButton
+              icon="account-group"
+              mode="contained-tonal"
+              size={32}
+              onPress={() => setIsCreateGroupVisible(true)}
+            />
             <Text variant="labelMedium" style={{ fontWeight: '600' }}>New Group</Text>
           </View>
         </View>
@@ -385,47 +450,71 @@ export default function DashboardScreen() {
         </View>
       </ScreenWrapper>
 
+      {/* Receipt Scanning Overlay */}
+      {isScanning && (
+        <Portal>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }]}>
+            <View style={{ 
+              backgroundColor: theme.colors.surface, 
+              padding: 32, 
+              borderRadius: 28, 
+              alignItems: 'center', 
+              width: '80%', 
+              maxWidth: 300,
+              borderWidth: 1,
+              borderColor: theme.colors.outline
+            }}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text variant="titleMedium" style={{ marginTop: 20, fontWeight: 'bold' }}>Scanning Bill...</Text>
+              <Text variant="bodySmall" style={{ marginTop: 8, color: theme.colors.outline, textAlign: 'center' }}>
+                AI is analyzing totals and merchant data
+              </Text>
+            </View>
+          </View>
+        </Portal>
+      )}
+
       {/* Global Dashboard FAB targeting the primary Action logic */}
       {/* Animated FAB: shows label on mount, collapses to icon after 2.5s */}
-      <TouchableOpacity
+      <AnimatedFAB
+        label="SPLIT BILL"
         onPress={() => setIsAddExpenseVisible(true)}
-        activeOpacity={0.85}
-        style={[
-          styles.fab,
-          {
-            backgroundColor: theme.colors.primary,
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: isFabExpanded ? 20 : 16,
-            paddingVertical: 16,
-            borderRadius: 24,
-            gap: isFabExpanded ? 10 : 0,
-          }
-        ]}
-      >
-        <MaterialCommunityIcons name="plus-thick" size={24} color={theme.colors.onPrimary} />
-        {isFabExpanded && (
-          <Animated.Text
-            style={{
-              opacity: fabLabelAnim,
-              color: theme.colors.onPrimary,
-              fontWeight: '800',
-              fontSize: 13,
-              letterSpacing: 1,
-            }}
-          >
-            SPLIT BILL
-          </Animated.Text>
-        )}
-      </TouchableOpacity>
+        isExpanded={isFabExpanded}
+      />
 
       <Portal>
+        {/* Receipt Source Picker */}
+        <Dialog visible={isSourcePickerVisible} onDismiss={() => setIsSourcePickerVisible(false)} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
+          <Dialog.Title style={{ fontWeight: 'bold' }}>Scan Bill</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 12 }}>
+              Choose how you want to add your bill.
+            </Text>
+            <List.Item
+              title="Take a Photo"
+              left={props => <List.Icon {...props} icon="camera" />}
+              onPress={() => performPick('camera')}
+              style={{ borderRadius: 12 }}
+            />
+            <Divider style={{ marginVertical: 4 }} />
+            <List.Item
+              title="Choose from Library"
+              left={props => <List.Icon {...props} icon="image-multiple" />}
+              onPress={() => performPick('library')}
+              style={{ borderRadius: 12 }}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setIsSourcePickerVisible(false)}>Cancel</Button>
+          </Dialog.Actions>
+        </Dialog>
+
         {/* ADD EXPENSE DIALOG */}
-        <Dialog visible={isAddExpenseVisible} onDismiss={dismissExpense} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
+        <Dialog visible={isAddExpenseVisible} onDismiss={dismissExpense} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '95%', maxWidth: 500, alignSelf: 'center', paddingVertical: 8 }}>
           <Dialog.Title style={{ fontWeight: 'bold' }}>Add Expense</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 16 }}>
-              Log a new bill and split it 50/50 instantly.
+              Log a new bill and split it instantly.
             </Text>
 
             <TextInput
@@ -457,21 +546,22 @@ export default function DashboardScreen() {
               <View style={{ marginTop: 8 }}>
                 <TextInput
                   mode="outlined"
-                  label="Search Network..."
+                  label="Search Friends..."
+                  placeholder="Who are you splitting with?"
                   value={friendSearchQuery}
                   onChangeText={setFriendSearchQuery}
                   style={{ marginBottom: 8, backgroundColor: 'transparent' }}
                   left={<TextInput.Icon icon="magnify" />}
                 />
 
-                {friendSearchQuery.trim().length >= 3 && (
-                  <View style={{ maxHeight: 140, borderRadius: 12, backgroundColor: theme.colors.elevation.level2, overflow: 'hidden' }}>
+                {debouncedFriendSearchQuery.trim().length >= 3 && (
+                  <View style={{ maxHeight: 320, borderRadius: 12, backgroundColor: theme.colors.elevation.level2, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.outlineVariant }}>
                     <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
                       {friends.length === 0 ? (
                         <Text variant="labelMedium" style={{ padding: 16, textAlign: 'center', color: theme.colors.outline }}>No friends found.</Text>
                       ) : (
                         friends
-                          .filter(f => f.name.toLowerCase().includes(friendSearchQuery.toLowerCase()))
+                          .filter(f => f.name.toLowerCase().includes(debouncedFriendSearchQuery.toLowerCase()))
                           .map(f => (
                             <Button
                               key={f.id}
@@ -607,7 +697,7 @@ export default function DashboardScreen() {
         </Dialog>
 
         {/* ADD FRIEND DIALOG */}
-        <Dialog visible={isAddFriendVisible} onDismiss={dismissFriend} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}>
+        <Dialog visible={isAddFriendVisible} onDismiss={dismissFriend} style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '95%', maxWidth: 500, alignSelf: 'center', paddingVertical: 8 }}>
           <Dialog.Title style={{ fontWeight: 'bold' }}>Add to Network</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 16 }}>
@@ -660,7 +750,7 @@ export default function DashboardScreen() {
         <Dialog
           visible={isSettlePickerVisible && !settleTarget}
           onDismiss={dismissSettlePicker}
-          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '90%', maxWidth: 400, alignSelf: 'center' }}
+          style={{ backgroundColor: theme.colors.surface, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.outline, width: '95%', maxWidth: 500, alignSelf: 'center', paddingVertical: 8 }}
         >
           <Dialog.Icon icon="handshake" />
           <Dialog.Title style={{ fontWeight: 'bold', textAlign: 'center' }}>Settle Up</Dialog.Title>
@@ -711,6 +801,14 @@ export default function DashboardScreen() {
           }}
           friend={settleTarget}
           onSuccess={loadDashboardData}
+        />
+
+        {/* CREATE GROUP MODAL */}
+        <CreateGroupModal
+          visible={isCreateGroupVisible}
+          onDismiss={() => setIsCreateGroupVisible(false)}
+          onSuccess={loadDashboardData}
+          friends={friends}
         />
       </Portal>
     </>
