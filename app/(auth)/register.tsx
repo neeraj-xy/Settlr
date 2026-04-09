@@ -149,7 +149,7 @@ export default function Register() {
           mode="contained" 
           onPress={handleRegister} 
           loading={isLoading}
-          disabled={isLoading}
+          disabled={isLoading || !name.trim() || !email.trim() || !password || !confirmPassword}
           style={styles.button}
           contentStyle={styles.buttonContent}
         >
