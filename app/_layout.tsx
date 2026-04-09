@@ -122,7 +122,11 @@ function RootNavigation() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+      <StatusBar 
+        style={colorScheme === "dark" ? "light" : "dark"} 
+        translucent 
+        backgroundColor="transparent" 
+      />
       {!isReady ? (
         <View style={{
           flex: 1,

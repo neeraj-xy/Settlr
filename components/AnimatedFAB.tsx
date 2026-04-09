@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, TouchableOpacity, Animated, Easing, ViewStyle, StyleProp } from 'react-native';
+import { StyleSheet, TouchableOpacity, Animated, Easing, ViewStyle, StyleProp, Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -72,7 +72,10 @@ export default function AnimatedFAB({
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    bottom: 96, // Increased to clear tabs and provide better vertical margin
+    bottom: Platform.select({
+      web: 96, // Higher offset for Web because of fixed tab bar
+      default: 24, // Standard offset for Native where content is already pushed up
+    }),
     right: 24, // Consistent right margin
     flexDirection: 'row',
     alignItems: 'center',

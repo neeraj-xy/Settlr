@@ -1,5 +1,7 @@
 {
     "cSpell.words": [
         "Settlr"
-    ]
+    ],
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

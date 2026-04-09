@@ -15,11 +15,11 @@ interface AddGroupExpenseModalProps {
   initialAmount?: string;
 }
 
-export default function AddGroupExpenseModal({ 
-  visible, 
-  onDismiss, 
-  group, 
-  currentUser, 
+export default function AddGroupExpenseModal({
+  visible,
+  onDismiss,
+  group,
+  currentUser,
   onSuccess,
   initialTitle = "",
   initialAmount = ""
@@ -49,7 +49,7 @@ export default function AddGroupExpenseModal({
     setInvolvedMembers(initialInvolved);
     setPortions(initialPortions);
     setError("");
-    
+
     if (initialTitle) setTitle(initialTitle);
     if (initialAmount) setTotalAmount(initialAmount);
   }, [group, visible, initialTitle, initialAmount]);
@@ -63,7 +63,7 @@ export default function AddGroupExpenseModal({
     if (activeMembers.length === 0) return { isValid: false, message: "Select at least one person", sum: 0 };
 
     if (splitMethod === 'equally') {
-      return { isValid: true, message: `Each person pays ${currencySymbol}${ (amount / activeMembers.length).toFixed(2) }`, sum: amount };
+      return { isValid: true, message: `Each person pays ${currencySymbol}${(amount / activeMembers.length).toFixed(2)}`, sum: amount };
     }
 
     const sum = Object.entries(portions).reduce((acc, [email, val]) => involvedMembers[email] ? acc + (parseFloat(val) || 0) : acc, 0);
@@ -71,18 +71,18 @@ export default function AddGroupExpenseModal({
     if (splitMethod === 'unequally') {
       const diff = amount - sum;
       if (Math.abs(diff) < 0.01) return { isValid: true, message: "All set!", sum };
-      return { 
-        isValid: false, 
-        message: diff > 0 ? `${currencySymbol}${diff.toFixed(2)} left to assign` : `${currencySymbol}${Math.abs(diff).toFixed(2)} over total amount`, 
-        sum 
+      return {
+        isValid: false,
+        message: diff > 0 ? `${currencySymbol}${diff.toFixed(2)} left to assign` : `${currencySymbol}${Math.abs(diff).toFixed(2)} over total amount`,
+        sum
       };
     } else if (splitMethod === 'percentages') {
       const diff = 100 - sum;
       if (Math.abs(diff) < 0.01) return { isValid: true, message: "100% reached!", sum };
-      return { 
-        isValid: false, 
-        message: diff > 0 ? `${diff.toFixed(1)}% left to assign` : `${Math.abs(diff).toFixed(1)}% over 100%`, 
-        sum 
+      return {
+        isValid: false,
+        message: diff > 0 ? `${diff.toFixed(1)}% left to assign` : `${Math.abs(diff).toFixed(1)}% over 100%`,
+        sum
       };
     } else if (splitMethod === 'shares') {
       if (sum <= 0) return { isValid: false, message: "Enter shares for members", sum };
@@ -95,7 +95,7 @@ export default function AddGroupExpenseModal({
   const getCalculatedShare = (memberEmail: string) => {
     const amount = parseFloat(totalAmount) || 0;
     if (!involvedMembers[memberEmail]) return 0;
-    
+
     if (splitMethod === 'equally') {
       const activeCount = Object.values(involvedMembers).filter(v => v).length;
       return amount / activeCount;
@@ -187,9 +187,9 @@ export default function AddGroupExpenseModal({
             value={splitMethod}
             onValueChange={setSplitMethod as any}
             buttons={[
-              { value: 'equally', label: 'Equally' },
-              { value: 'unequally', label: 'Unequally' },
-              { value: 'percentages', label: 'Percentages' },
+              { value: 'equally', label: 'Equal' },
+              { value: 'unequally', label: 'Amount' },
+              { value: 'percentages', label: '%' },
               { value: 'shares', label: 'Shares' },
             ]}
             style={styles.segmented}
@@ -209,51 +209,51 @@ export default function AddGroupExpenseModal({
               return 0;
             });
           }, [group.members, currentUser.email]).map(member => (
-            <TouchableRipple
-              key={member.email}
-              onPress={() => setInvolvedMembers(prev => ({ ...prev, [member.email]: !prev[member.email] }))}
-              rippleColor={theme.colors.primary + '1A'}
-              style={styles.memberRipple}
-            >
-              <View style={styles.memberRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                  <Checkbox.Android
-                    status={involvedMembers[member.email] ? 'checked' : 'unchecked'}
-                    color={theme.colors.primary}
-                  />
-                  <Text variant="bodyLarge" style={{ marginLeft: 8 }}>
-                    {member.email === currentUser.email ? "You" : member.name}
-                  </Text>
-                </View>
- 
-                {involvedMembers[member.email] && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {splitMethod !== 'equally' && (
-                      <TextInput
-                        mode="outlined"
-                        dense
-                        placeholder={splitMethod === 'percentages' ? "%" : splitMethod === 'shares' ? "1" : "0.00"}
-                        value={portions[member.email]}
-                        onChangeText={text => setPortions(prev => ({ ...prev, [member.email]: text }))}
-                        keyboardType="decimal-pad"
-                        style={styles.portionInput}
-                      />
-                    )}
-                    <Text 
-                      variant="labelMedium" 
-                      style={{ 
-                        width: 70, 
-                        textAlign: 'right', 
-                        color: theme.colors.outline,
-                        marginLeft: 8
-                      }}
-                    >
-                      {currencySymbol}{getCalculatedShare(member.email).toFixed(2)}
+            <View key={member.email} style={{ borderRadius: 16, overflow: "hidden", marginBottom: 4 }}>
+              <TouchableRipple
+                onPress={() => setInvolvedMembers(prev => ({ ...prev, [member.email]: !prev[member.email] }))}
+                rippleColor={theme.colors.primary + '1A'}
+              >
+                <View style={styles.memberRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    <Checkbox.Android
+                      status={involvedMembers[member.email] ? 'checked' : 'unchecked'}
+                      color={theme.colors.primary}
+                    />
+                    <Text variant="bodyLarge" style={{ marginLeft: 8 }}>
+                      {member.email === currentUser.email ? "You" : member.name}
                     </Text>
                   </View>
-                )}
-              </View>
-            </TouchableRipple>
+
+                  {involvedMembers[member.email] && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {splitMethod !== 'equally' && (
+                        <TextInput
+                          mode="outlined"
+                          dense
+                          placeholder={splitMethod === 'percentages' ? "%" : splitMethod === 'shares' ? "1" : "0.00"}
+                          value={portions[member.email]}
+                          onChangeText={text => setPortions(prev => ({ ...prev, [member.email]: text }))}
+                          keyboardType="decimal-pad"
+                          style={styles.portionInput}
+                        />
+                      )}
+                      <Text
+                        variant="labelMedium"
+                        style={{
+                          width: 70,
+                          textAlign: 'right',
+                          color: theme.colors.outline,
+                          marginLeft: 8
+                        }}
+                      >
+                        {currencySymbol}{getCalculatedShare(member.email).toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableRipple>
+            </View>
           ))}
 
           {error ? <HelperText type="error" visible style={{ marginTop: 10 }}>{error}</HelperText> : null}

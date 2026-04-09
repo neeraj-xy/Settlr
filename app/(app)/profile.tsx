@@ -175,14 +175,16 @@ export default function ProfileScreen() {
       {/* Preferences Section */}
       <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer }]}>
         <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>SOCIAL</Text>
-        <List.Item
-          title="Invite Friends"
-          description="Build your splitting circle"
-          left={props => <List.Icon {...props} icon="account-plus-outline" color={theme.colors.onPrimaryContainer} />}
-          right={props => <List.Icon {...props} icon="chevron-right" color={theme.colors.onPrimaryContainer} />}
-          onPress={() => setIsInviteVisible(true)}
-          style={{ paddingHorizontal: 0, borderRadius: 16 }}
-        />
+        <View style={{ borderRadius: 16, overflow: "hidden" }}>
+          <List.Item
+            title="Invite Friends"
+            description="Build your splitting circle"
+            left={props => <List.Icon {...props} icon="account-plus-outline" color={theme.colors.onPrimaryContainer} />}
+            right={props => <List.Icon {...props} icon="chevron-right" color={theme.colors.onPrimaryContainer} />}
+            onPress={() => setIsInviteVisible(true)}
+            style={{ paddingHorizontal: 0 }}
+          />
+        </View>
       </View>
 
       <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer }]}>
@@ -195,18 +197,20 @@ export default function ProfileScreen() {
 
       {/* Sign Out Section */}
       <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer, marginBottom: 0, paddingHorizontal: 0, paddingVertical: 0 }]}>
-        <List.Item
-          title="Sign Out"
-          titleStyle={{ color: theme.colors.error, fontWeight: '600' }}
-          left={props => (
-            <List.Icon {...props} icon="logout" color={theme.colors.error} />
-          )}
-          right={props => (
-            <List.Icon {...props} icon="chevron-right" color={theme.colors.error} />
-          )}
-          onPress={() => setIsSignOutVisible(true)}
-          style={{ paddingHorizontal: 16, borderRadius: 28 }}
-        />
+        <View style={{ borderRadius: 28, overflow: "hidden" }}>
+          <List.Item
+            title="Sign Out"
+            titleStyle={{ color: theme.colors.error, fontWeight: '600' }}
+            left={props => (
+              <List.Icon {...props} icon="logout" color={theme.colors.error} />
+            )}
+            right={props => (
+              <List.Icon {...props} icon="chevron-right" color={theme.colors.error} />
+            )}
+            onPress={() => setIsSignOutVisible(true)}
+            style={{ paddingHorizontal: 16 }}
+          />
+        </View>
       </View>
 
       {/* Invitations Modal */}

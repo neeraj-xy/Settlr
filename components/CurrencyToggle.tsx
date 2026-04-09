@@ -13,10 +13,10 @@ export default function CurrencyToggle() {
         value={currencySymbol}
         onValueChange={(value) => setCurrencySymbol(value as CurrencySymbol)}
         buttons={[
-          { value: "$", label: "USD ($)" },
-          { value: "€", label: "EUR (€)" },
-          { value: "£", label: "GBP (£)" },
-          { value: "₹", label: "INR (₹)" },
+          { value: "$", label: "USD" },
+          { value: "€", label: "EUR" },
+          { value: "£", label: "GBP" },
+          { value: "₹", label: "INR" },
         ]}
         style={styles.segmentedButtons}
         theme={{

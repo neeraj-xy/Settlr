@@ -147,11 +147,11 @@ export default function GroupDetailScreen() {
 
   const getGroupStats = () => {
     const activeExpenses = splits.filter(s => s.status !== "deleted" && s.type !== "settlement");
-    
+
     const totalSpent = activeExpenses.reduce((acc, s) => acc + (s.totalAmount || 0), 0);
     const totalPaidByMe = activeExpenses.reduce((acc, s) => s.payerEmail === user?.email ? acc + (s.totalAmount || 0) : acc, 0);
     const myShare = activeExpenses.reduce((acc, s) => acc + (s.splitDetails?.[user?.email || ""] || 0), 0);
-    
+
     return { totalSpent, totalPaidByMe, myShare };
   };
 
@@ -192,8 +192,8 @@ export default function GroupDetailScreen() {
   const stats = getGroupStats();
 
   return (
-    <ScreenWrapper 
-      scrollEnabled={true} 
+    <ScreenWrapper
+      scrollEnabled={true}
       contentContainerStyle={styles.container}
       onScroll={handleScroll}
       fixedChildren={
@@ -272,8 +272,8 @@ export default function GroupDetailScreen() {
             </View>
           )}
         </View>
-        
-      <View style={{ height: 120 }} />
+
+        <View style={{ height: 120 }} />
       </View>
 
       {/* Modals & Dialogs */}
@@ -310,12 +310,12 @@ export default function GroupDetailScreen() {
         {/* Receipt Scanning Overlay */}
         {isScanning && (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }]}>
-            <View style={{ 
-              backgroundColor: theme.colors.surface, 
-              padding: 32, 
-              borderRadius: 28, 
-              alignItems: 'center', 
-              width: '80%', 
+            <View style={{
+              backgroundColor: theme.colors.surface,
+              padding: 32,
+              borderRadius: 28,
+              alignItems: 'center',
+              width: '80%',
               maxWidth: 300,
               borderWidth: 1,
               borderColor: theme.colors.outline
@@ -336,19 +336,21 @@ export default function GroupDetailScreen() {
             <Text variant="bodyMedium" style={{ color: theme.colors.outline, marginBottom: 12 }}>
               Choose how you want to add your group bill.
             </Text>
-            <List.Item
-              title="Take a Photo"
-              left={props => <List.Icon {...props} icon="camera" />}
-              onPress={() => performPick('camera')}
-              style={{ borderRadius: 12 }}
-            />
+            <View style={{ borderRadius: 12, overflow: "hidden" }}>
+              <List.Item
+                title="Take a Photo"
+                left={props => <List.Icon {...props} icon="camera" />}
+                onPress={() => performPick('camera')}
+              />
+            </View>
             <Divider style={{ marginVertical: 4 }} />
-            <List.Item
-              title="Choose from Library"
-              left={props => <List.Icon {...props} icon="image-multiple" />}
-              onPress={() => performPick('library')}
-              style={{ borderRadius: 12 }}
-            />
+            <View style={{ borderRadius: 12, overflow: "hidden" }}>
+              <List.Item
+                title="Choose from Library"
+                left={props => <List.Icon {...props} icon="image-multiple" />}
+                onPress={() => performPick('library')}
+              />
+            </View>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setIsSourcePickerVisible(false)}>Cancel</Button>
@@ -462,7 +464,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 72, 
+    bottom: 72,
     right: 24,
     elevation: 4,
     shadowColor: '#000',

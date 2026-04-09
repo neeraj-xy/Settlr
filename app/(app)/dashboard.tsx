@@ -454,12 +454,12 @@ export default function DashboardScreen() {
       {isScanning && (
         <Portal>
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }]}>
-            <View style={{ 
-              backgroundColor: theme.colors.surface, 
-              padding: 32, 
-              borderRadius: 28, 
-              alignItems: 'center', 
-              width: '80%', 
+            <View style={{
+              backgroundColor: theme.colors.surface,
+              padding: 32,
+              borderRadius: 28,
+              alignItems: 'center',
+              width: '80%',
               maxWidth: 300,
               borderWidth: 1,
               borderColor: theme.colors.outline
@@ -555,7 +555,7 @@ export default function DashboardScreen() {
                 />
 
                 {debouncedFriendSearchQuery.trim().length >= 3 && (
-                  <View style={{ maxHeight: 320, borderRadius: 12, backgroundColor: theme.colors.elevation.level2, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.outlineVariant }}>
+                  <View style={{ maxHeight: 320, borderRadius: 20, backgroundColor: theme.colors.elevation.level2, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.outlineVariant }}>
                     <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
                       {friends.length === 0 ? (
                         <Text variant="labelMedium" style={{ padding: 16, textAlign: 'center', color: theme.colors.outline }}>No friends found.</Text>
@@ -765,24 +765,25 @@ export default function DashboardScreen() {
                   Select who to settle with:
                 </Text>
                 {friends.filter(f => f.totalBalance !== 0).map((friend) => (
-                  <List.Item
-                    key={friend.id}
-                    title={friend.name}
-                    titleStyle={{ fontWeight: 'bold' }}
-                    description={`Balance: ${currencySymbol}${Math.abs(friend.totalBalance).toFixed(2)}`}
-                    left={props => <Avatar.Text size={40} label={friend.name.substring(0, 2).toUpperCase()} style={{ marginLeft: 0 }} />}
-                    right={props => (
-                      <Button
-                        mode="contained-tonal"
-                        compact
-                        onPress={() => openSettleStep2(friend)}
-                        style={{ borderRadius: 12, alignSelf: 'center' }}
-                      >
-                        Select
-                      </Button>
-                    )}
-                    style={{ paddingHorizontal: 0 }}
-                  />
+                  <View key={friend.id} style={{ borderRadius: 16, overflow: "hidden", marginBottom: 8 }}>
+                    <List.Item
+                      title={friend.name}
+                      titleStyle={{ fontWeight: 'bold' }}
+                      description={`Balance: ${currencySymbol}${Math.abs(friend.totalBalance).toFixed(2)}`}
+                      left={props => <Avatar.Text size={40} label={friend.name.substring(0, 2).toUpperCase()} style={{ marginLeft: 0 }} />}
+                      right={props => (
+                        <Button
+                          mode="contained-tonal"
+                          compact
+                          onPress={() => openSettleStep2(friend)}
+                          style={{ borderRadius: 12, alignSelf: 'center' }}
+                        >
+                          Select
+                        </Button>
+                      )}
+                      style={{ paddingHorizontal: 0 }}
+                    />
+                  </View>
                 ))}
               </>
             )}

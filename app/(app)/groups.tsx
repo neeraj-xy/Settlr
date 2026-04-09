@@ -90,51 +90,53 @@ export default function GroupsScreen() {
             {friends.map((friend, index) => {
               return (
                 <View key={friend.id}>
-                  <List.Item
-                    title={friend.name}
-                    titleStyle={{ fontWeight: 'bold' }}
-                    description={
-                      <View>
-                        <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-                          {formatIdentity(friend.email)}
-                        </Text>
-                      </View>
-                    }
-                    left={props => (
-                      <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
-                        <Avatar.Text size={40} label={friend.name.substring(0, 2).toUpperCase()} />
-                      </View>
-                    )}
-                    right={props => (
-                      <View style={{ justifyContent: 'center', marginRight: 8, alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
-                        {friend.totalBalance !== 0 && (
-                          <IconButton
-                            icon="handshake"
-                            mode="contained-tonal"
-                            size={20}
-                            onPress={() => { 
-                              setSettleTarget(friend); 
-                              setIsSettleOpen(true); 
-                            }}
-                            style={{ margin: 0 }}
-                          />
-                        )}
-                        <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                          <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>BALANCE</Text>
-                          <Text
-                            variant="titleMedium"
-                            style={{
-                              color: friend.totalBalance < 0 ? theme.colors.error : (friend.totalBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
-                              fontWeight: 'bold',
-                            }}
-                          >
-                            {currencySymbol}{Math.abs(friend.totalBalance).toFixed(2)}
+                  <View style={{ borderRadius: 16, overflow: "hidden" }}>
+                    <List.Item
+                      title={friend.name}
+                      titleStyle={{ fontWeight: 'bold' }}
+                      description={
+                        <View>
+                          <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+                            {formatIdentity(friend.email)}
                           </Text>
                         </View>
-                      </View>
-                    )}
-                    style={{ paddingVertical: 12 }}
-                  />
+                      }
+                      left={props => (
+                        <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
+                          <Avatar.Text size={40} label={friend.name.substring(0, 2).toUpperCase()} />
+                        </View>
+                      )}
+                      right={props => (
+                        <View style={{ justifyContent: 'center', marginRight: 8, alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
+                          {friend.totalBalance !== 0 && (
+                            <IconButton
+                              icon="handshake"
+                              mode="contained-tonal"
+                              size={20}
+                              onPress={() => { 
+                                setSettleTarget(friend); 
+                                setIsSettleOpen(true); 
+                              }}
+                              style={{ margin: 0 }}
+                            />
+                          )}
+                          <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                            <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>BALANCE</Text>
+                            <Text
+                              variant="titleMedium"
+                              style={{
+                                color: friend.totalBalance < 0 ? theme.colors.error : (friend.totalBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              {currencySymbol}{Math.abs(friend.totalBalance).toFixed(2)}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                      style={{ paddingVertical: 12 }}
+                    />
+                  </View>
                   {index < friends.length - 1 && <Divider style={{ marginLeft: 72 }} />}
                 </View>
               );
@@ -186,35 +188,37 @@ export default function GroupsScreen() {
 
               return (
                 <View key={group.id}>
-                  <List.Item
-                    title={group.name}
-                    titleStyle={{ fontWeight: 'bold' }}
-                    description={`${group.members.length} members`}
-                    left={props => (
-                      <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
-                        <Avatar.Icon size={40} icon="google-circles-extended" style={{ backgroundColor: theme.colors.primaryContainer }} color={theme.colors.primary} />
-                      </View>
-                    )}
-                    right={props => (
-                      <View style={{ justifyContent: 'center', marginRight: 16, alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
-                        <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                          <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>YOUR BALANCE</Text>
-                          <Text
-                            variant="titleMedium"
-                            style={{
-                              color: myBalance < 0 ? theme.colors.error : (myBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
-                              fontWeight: 'bold',
-                            }}
-                          >
-                            {currencySymbol}{Math.abs(myBalance).toFixed(2)}
-                          </Text>
+                  <View style={{ borderRadius: 16, overflow: "hidden" }}>
+                    <List.Item
+                      title={group.name}
+                      titleStyle={{ fontWeight: 'bold' }}
+                      description={`${group.members.length} members`}
+                      left={props => (
+                        <View style={{ justifyContent: 'center', marginLeft: 16, marginRight: 8 }}>
+                          <Avatar.Icon size={40} icon="google-circles-extended" style={{ backgroundColor: theme.colors.primaryContainer }} color={theme.colors.primary} />
                         </View>
-                        <IconButton icon="chevron-right" onPress={() => router.push(`/group/${group.id}`)} />
-                      </View>
-                    )}
-                    onPress={() => router.push(`/group/${group.id}`)}
-                    style={{ paddingVertical: 12 }}
-                  />
+                      )}
+                      right={props => (
+                        <View style={{ justifyContent: 'center', marginRight: 16, alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
+                          <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                            <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>YOUR BALANCE</Text>
+                            <Text
+                              variant="titleMedium"
+                              style={{
+                                color: myBalance < 0 ? theme.colors.error : (myBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              {currencySymbol}{Math.abs(myBalance).toFixed(2)}
+                            </Text>
+                          </View>
+                          <IconButton icon="chevron-right" onPress={() => router.push(`/group/${group.id}`)} />
+                        </View>
+                      )}
+                      onPress={() => router.push(`/group/${group.id}`)}
+                      style={{ paddingVertical: 12 }}
+                    />
+                  </View>
                   {index < groups.length - 1 && <Divider style={{ marginLeft: 72 }} />}
                 </View>
               );

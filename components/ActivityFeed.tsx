@@ -59,30 +59,34 @@ export default function ActivityFeed({
       // Exclude yourself
       if (p === user?.uid) return false;
       if (p === `email:${userEmail}`) return false;
+      // Exclude technical IDs (like friendship IDs containing __)
+      if (typeof p === 'string' && p.includes('__')) return false;
       return true;
     }) || [];
 
-    const participantNames = involvedParticipans.map(p => {
+    const participantNames = Array.from(new Set(involvedParticipans.map(p => {
       // Try to find in friends list
       const f = friends.find(friend => {
         if (friend.linkedUserId === p) return true;
-        if (p.startsWith("email:") && friend.email?.toLowerCase() === p.split(":")[1].toLowerCase()) return true;
+        if (typeof p === 'string' && p.startsWith("email:") && friend.email?.toLowerCase() === p.split(":")[1].toLowerCase()) return true;
         return false;
       });
       if (f) return f.name.split(" ")[0]; // Just first names for brevity
-      return formatIdentity(p).split("@")[0]; // Fallback to formatted identity
-    });
+      return formatIdentity(p as string).split("@")[0]; // Fallback to formatted identity
+    })));
 
     let friendDisplayName = "Someone";
-    if (participantNames.length === 1) {
+    if (isSettlement && split.friendName) {
+      friendDisplayName = split.friendName.split(" ")[0];
+    } else if (participantNames.length === 1) {
       friendDisplayName = participantNames[0];
     } else if (participantNames.length === 2) {
       friendDisplayName = `${participantNames[0]} and ${participantNames[1]}`;
     } else if (participantNames.length > 2) {
       friendDisplayName = `${participantNames[0]} and ${participantNames.length - 1} others`;
-    } else if (!split.groupId) {
-      // Fallback for peer splits
-      friendDisplayName = (split.friendName || split.payerName || "Friend").split(" ")[0];
+    } else {
+      // Fallback
+      friendDisplayName = (split.friendName || split.payerName || "Someone").split(" ")[0];
     }
 
     const isDeleted = split.status === "deleted";
@@ -105,8 +109,8 @@ export default function ActivityFeed({
           onPress={() => openDetailModal(split, friendDisplayName, isPayer, owedAmount)}
           title={split.title}
           titleStyle={
-            isDeleted 
-              ? { color: theme.colors.outline, textDecorationLine: 'line-through' } 
+            isDeleted
+              ? { color: theme.colors.outline, textDecorationLine: 'line-through' }
               : { fontWeight: 'bold', fontSize: 16 }
           }
           description={
@@ -154,7 +158,7 @@ export default function ActivityFeed({
       <>
         {splits.map((split, index) => renderActivityItem(split, index))}
         {isFetchingMore && (
-           <ActivityIndicator style={{ paddingVertical: 20 }} color={theme.colors.primary} />
+          <ActivityIndicator style={{ paddingVertical: 20 }} color={theme.colors.primary} />
         )}
         <SplitDetailModal
           visible={!!selectedSplit}
@@ -177,7 +181,7 @@ export default function ActivityFeed({
         keyExtractor={(item) => item.id}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.5}
-        ListFooterComponent={() => 
+        ListFooterComponent={() =>
           isFetchingMore ? (
             <ActivityIndicator style={{ paddingVertical: 20 }} color={theme.colors.primary} />
           ) : <View style={{ height: 20 }} />

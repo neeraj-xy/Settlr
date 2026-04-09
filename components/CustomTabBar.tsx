@@ -1,10 +1,9 @@
-import { View, TouchableOpacity, StyleSheet, Platform, Animated, Easing } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { useTheme, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
-import { useRef, useEffect } from "react";
 
 type TabConfig = {
   name: string;
@@ -14,7 +13,7 @@ type TabConfig = {
 };
 
 const TAB_CONFIG: TabConfig[] = [
-  { name: "index", label: "Home", activeIcon: "cash-multiple", inactiveIcon: "cash" },
+  { name: "dashboard", label: "Home", activeIcon: "cash-multiple", inactiveIcon: "cash" },
   { name: "groups", label: "Network", activeIcon: "account-group", inactiveIcon: "account-group-outline" },
   { name: "activity", label: "Activity", activeIcon: "text-box-search", inactiveIcon: "text-box-search-outline" },
   { name: "profile", label: "Profile", activeIcon: "account-settings", inactiveIcon: "account-settings-outline" },
@@ -31,31 +30,11 @@ function TabItem({
   onPress: () => void;
   theme: any;
 }) {
-  const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0.88)).current;
-  const opacityAnim = useRef(new Animated.Value(isFocused ? 1 : 0.6)).current;
-  const pillAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
-
-  useEffect(() => {
-    const toScale = isFocused ? 1 : 0.88;
-    const toOpacity = isFocused ? 1 : 0.6;
-    const toPill = isFocused ? 1 : 0;
-    const duration = 200;
-    const easing = Easing.out(Easing.cubic);
-
-    Animated.parallel([
-      Animated.timing(scaleAnim, { toValue: toScale, duration, easing, useNativeDriver: true }),
-      Animated.timing(opacityAnim, { toValue: toOpacity, duration, easing, useNativeDriver: true }),
-      Animated.timing(pillAnim, { toValue: toPill, duration, easing, useNativeDriver: false }),
-    ]).start();
-  }, [isFocused]);
-
-  const pillBgColor = pillAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [
-      "rgba(0,0,0,0)",
-      theme.dark ? "rgba(255,255,255,0.12)" : theme.colors.primaryContainer,
-    ],
-  });
+  const activeColor = theme?.colors?.primary || "#000000";
+  const inactiveColor = theme?.colors?.outline || "#A3A3A3";
+  const pillBg = isFocused
+    ? (theme?.dark ? "rgba(255,255,255,0.12)" : (theme?.colors?.primaryContainer || "rgba(0,0,0,0.1)"))
+    : "transparent";
 
   return (
     <TouchableOpacity
@@ -65,28 +44,28 @@ function TabItem({
       accessibilityRole="button"
       accessibilityLabel={tab.label}
     >
-      <Animated.View
+      <View
         style={[
           styles.pillIndicator,
-          { backgroundColor: pillBgColor, transform: [{ scale: scaleAnim }], opacity: opacityAnim },
+          { backgroundColor: pillBg },
         ]}
       >
         <MaterialCommunityIcons
           name={isFocused ? (tab.activeIcon as any) : (tab.inactiveIcon as any)}
           size={24}
-          color={isFocused ? theme.colors.primary : theme.colors.outline}
+          color={isFocused ? activeColor : inactiveColor}
         />
-      </Animated.View>
+      </View>
       <Text
         style={[
           styles.label,
           {
-            color: isFocused ? theme.colors.primary : theme.colors.outline,
+            color: isFocused ? activeColor : inactiveColor,
             fontWeight: isFocused ? "700" : "500",
           },
         ]}
       >
-        {tab.label}
+        {tab.label || ""}
       </Text>
     </TouchableOpacity>
   );
@@ -97,11 +76,11 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const bottomPadding = insets.bottom > 0 ? insets.bottom : 12;
 
-  const glassBg = theme.dark ? "rgba(18, 18, 18, 0.7)" : "rgba(255, 255, 255, 0.7)";
-  const borderColor = theme.colors.outline;
+  const glassBg = theme.dark ? "rgba(18, 18, 18, 0.75)" : "rgba(255, 255, 255, 0.8)";
+  const borderColor = theme.colors.outlineVariant || theme.colors.outline;
 
   const tabContent = (
-    <View style={[styles.tabRow, { paddingBottom: bottomPadding }]}>
+    <View style={[styles.tabContent, { paddingBottom: bottomPadding }]}>
       {TAB_CONFIG.map((tab, index) => {
         const isFocused = state.index === index;
 
@@ -134,17 +113,14 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
       <View
         style={[
           styles.webWrapper,
-          { borderTopColor: borderColor, backgroundColor: glassBg },
           {
-            // @ts-ignore — React Native Web CSS passthrough
+            borderTopColor: borderColor,
+            backgroundColor: glassBg,
+            // @ts-ignore
             backdropFilter: "saturate(180%) blur(20px)",
-            // @ts-ignore — React Native Web CSS passthrough
+            // @ts-ignore
             WebkitBackdropFilter: "saturate(180%) blur(20px)",
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-          },
+          }
         ]}
       >
         {tabContent}
@@ -154,7 +130,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <BlurView
-      intensity={72}
+      intensity={80}
       tint={theme.dark ? "dark" : "light"}
       style={[styles.nativeWrapper, { borderTopColor: borderColor }]}
     >
@@ -167,13 +143,17 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   webWrapper: {
     borderTopWidth: 0.5,
-    zIndex: 100,
+    position: "fixed",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
   },
   nativeWrapper: {
     borderTopWidth: 0.5,
     overflow: "hidden",
   },
-  tabRow: {
+  tabContent: {
     flexDirection: "row",
     paddingTop: 8,
     paddingHorizontal: 8,
