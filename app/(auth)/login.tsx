@@ -26,7 +26,7 @@ export default function Login() {
       const resp = await signIn(email, password);
       // If user returned successfully, redirect
       if (resp) {
-        router.replace("/(app)");
+        router.replace("/(app)/dashboard");
       } else {
         // Since signIn handles its own catch but returns undefined
         setError("Invalid email or password.");

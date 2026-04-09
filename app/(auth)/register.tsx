@@ -45,7 +45,7 @@ export default function Register() {
     try {
       const resp = await signUp(email, password, name);
       if (resp) {
-        router.replace("/(app)");
+        router.replace("/(app)/dashboard");
       } else {
         setError("Error creating account. Email might already be in use.");
       }
