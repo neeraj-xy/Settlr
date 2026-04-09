@@ -3,6 +3,7 @@ import { AppThemeProvider, useThemeContext } from "@/context/ThemeContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Slot, SplashScreen } from "expo-router";
+import { View, ActivityIndicator } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   PaperProvider,
@@ -38,21 +39,27 @@ function RootNavigation() {
   const { colorScheme, toastMessage, setToastMessage } = useThemeContext();
   const [isReady, setIsReady] = useState(false);
 
-  // Load custom fonts
-  const [fontsLoaded] = useFonts({
+  // Load custom fonts with error capture
+  const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
     PlusJakartaSans_700Bold,
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
+    // We are ready if fonts are loaded OR if they failed (fallback to system fonts)
+    if (fontsLoaded || fontError) {
       setIsReady(true);
       SplashScreen.hideAsync();
+      
+      if (fontError) {
+        console.warn("Fonts failed to load, falling back to system fonts.", fontError);
+      }
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!isReady) return null; // Prevent rendering until everything is loaded
+  // Removed early null return to prevent blank page state during hydration
+
 
   // Adapt navigation themes
   const { LightTheme, DarkTheme } = adaptNavigationTheme({
@@ -109,19 +116,23 @@ function RootNavigation() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* 
-        Slot renders child routes dynamically
-        This includes both (app) and (auth) group routes
-      */}
-      <PaperProvider theme={configuredPaperTheme}>
-        <ThemeProvider value={configuredNavigationTheme}>
-          <KeyboardProvider>
-            <SafeAreaProvider style={{ flex: 1 }}>
-              <Slot />
-              <GlobalThemeToggle />
-            </SafeAreaProvider>
-          </KeyboardProvider>
-        </ThemeProvider>
+      {!isReady ? (
+        <View style={{ flex: 1, backgroundColor: CombinedDefaultTheme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" />
+        </View>
+      ) : (
+        <>
+          <PaperProvider theme={configuredPaperTheme}>
+            <ThemeProvider value={configuredNavigationTheme}>
+              <KeyboardProvider>
+                <SafeAreaProvider style={{ flex: 1 }}>
+                  <Slot />
+                  <GlobalThemeToggle />
+                </SafeAreaProvider>
+              </KeyboardProvider>
+            </ThemeProvider>
+            
+            {/* ... snackbar and statusbar remain below ... */}
         
         <Snackbar
           visible={!!toastMessage}
@@ -138,14 +149,12 @@ function RootNavigation() {
           </Text>
         </Snackbar>
 
-        <StatusBar
-          style={colorScheme === "dark" ? "light" : "dark"}
-          animated
-        />
-      </PaperProvider>
-    </GestureHandlerRootView>
-  );
-}
+              </PaperProvider>
+            </>
+          )}
+        </GestureHandlerRootView>
+      );
+    }
 
 export default function Root() {
   return (

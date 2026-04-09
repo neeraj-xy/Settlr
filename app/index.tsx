@@ -33,10 +33,11 @@ export default function LandingPage() {
     transform: [{ translateY: translateY.value }],
   }));
 
-  // Auto-redirect members to dashboard
-  if (user && !isLoading) {
-    return <Redirect href="/(app)/dashboard" />;
-  }
+  useEffect(() => {
+    if (user && !isLoading) {
+      router.replace("/(app)/dashboard");
+    }
+  }, [user, isLoading]);
 
   if (isLoading) {
     return (
