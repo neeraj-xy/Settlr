@@ -15,7 +15,7 @@ export default function RootLayout() {
   }
 
   if (user) {
-    return <Redirect href="/(app)" />;
+    return <Redirect href="/(app)/dashboard" />;
   }
 
   return (

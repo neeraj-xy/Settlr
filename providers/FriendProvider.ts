@@ -1,13 +1,13 @@
 import { db } from "@/config/firebaseConfig";
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  query, 
-  where, 
-  setDoc, 
-  serverTimestamp, 
-  limit, 
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  where,
+  setDoc,
+  serverTimestamp,
+  limit,
 } from "firebase/firestore";
 
 export interface Friend {
@@ -55,7 +55,7 @@ export async function getFriendships(
   userEmail?: string | null
 ): Promise<{ friends: Friend[], totalOwe: number, totalOwed: number }> {
   if (!userEmail) return { friends: [], totalOwe: 0, totalOwed: 0 };
-  
+
   const email = userEmail.toLowerCase().trim();
   const q = query(
     collection(db, "friendships"),
@@ -75,7 +75,7 @@ export async function getFriendships(
 
       const balanceKey = normalizeEmail(email);
       const balance = data.balances[balanceKey] || 0;
-      
+
       const gross = data.grossBalances?.[balanceKey] || { owe: 0, owed: 0 };
       totalOwe += gross.owe || 0;
       totalOwed += gross.owed || 0;
@@ -107,44 +107,56 @@ export async function getFriendships(
  * Adds a new shared friendship.
  */
 export async function addGhostFriend(
-  currentUserId: string, 
-  name: string, 
+  currentUserId: string,
+  name: string,
   email?: string,
   currentUserName?: string,
   currentUserEmail?: string
 ): Promise<Friend> {
   const searchEmail = email?.trim().toLowerCase() || null;
-  if (!searchEmail || !currentUserEmail) {
-    throw new Error("Both emails are required for the Shared Ledger architecture.");
+  if (!currentUserEmail) {
+    throw new Error("Current user email is required.");
   }
 
-  const friendshipId = getFriendshipId(currentUserEmail, searchEmail);
+  // If no email is provided, it's a "Personal Ledger" (ghost only).
+  // We use a unique ID that won't conflict with shared email-based IDs.
+  const friendshipId = searchEmail
+    ? getFriendshipId(currentUserEmail, searchEmail)
+    : `personal_${currentUserId}_${Date.now()}`;
+
   const friendshipRef = doc(db, "friendships", friendshipId);
 
   let linkedUserId: string | null = null;
-  try {
-    const emailQuery = query(collection(db, "users"), where("email", "==", searchEmail), limit(1));
-    const emailSnapshot = await getDocs(emailQuery);
-    if (!emailSnapshot.empty) {
-      linkedUserId = emailSnapshot.docs[0].id;
+  if (searchEmail) {
+    try {
+      const emailQuery = query(collection(db, "users"), where("email", "==", searchEmail), limit(1));
+      const emailSnapshot = await getDocs(emailQuery);
+      if (!emailSnapshot.empty) {
+        linkedUserId = emailSnapshot.docs[0].id;
+      }
+    } catch (err) {
+      console.warn("[linked lookup fail]", err);
     }
-  } catch (err) {
-    console.warn("[linked lookup fail]", err);
   }
 
   const uids = [currentUserId];
   if (linkedUserId) uids.push(linkedUserId);
 
+  // For Personal Ledger friends, we use the friendshipId as the unique key in maps
+  const ledgerKey = searchEmail ? searchEmail.toLowerCase() : friendshipId;
+  const normalizedLedgerKey = normalizeEmail(ledgerKey);
+  const normalizedCurrentUserKey = normalizeEmail(currentUserEmail);
+
   await setDoc(friendshipRef, {
-    participants: [currentUserEmail.toLowerCase(), searchEmail],
+    participants: [currentUserEmail.toLowerCase(), ...(searchEmail ? [searchEmail] : [ledgerKey])],
     uids,
     names: {
       [currentUserEmail.toLowerCase()]: currentUserName || "Someone",
-      [searchEmail]: name,
+      [ledgerKey]: name,
     },
     balances: {
-      [normalizeEmail(currentUserEmail)]: 0,
-      [normalizeEmail(searchEmail)]: 0,
+      [normalizedCurrentUserKey]: 0,
+      [normalizedLedgerKey]: 0,
     },
     lastUpdated: serverTimestamp(),
     createdAt: serverTimestamp(),
@@ -153,7 +165,7 @@ export async function addGhostFriend(
   return {
     id: friendshipId,
     name,
-    email: searchEmail,
+    email: searchEmail || undefined,
     linkedUserId,
     mirrorFriendDocId: null,
     totalBalance: 0,

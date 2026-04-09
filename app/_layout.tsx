@@ -13,6 +13,8 @@ import {
   configureFonts,
   Snackbar,
   Text,
+  Avatar,
+  useTheme,
 } from "react-native-paper";
 import { Colors } from "@/constants/Colors";
 import merge from "deepmerge";
@@ -31,6 +33,7 @@ import {
 } from "@expo-google-fonts/plus-jakarta-sans";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
+import Animated, { FadeInUp } from "react-native-reanimated";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -38,6 +41,8 @@ SplashScreen.preventAutoHideAsync();
 function RootNavigation() {
   const { colorScheme, toastMessage, setToastMessage } = useThemeContext();
   const [isReady, setIsReady] = useState(false);
+
+  const theme = useTheme();
 
   // Load custom fonts with error capture
   const [fontsLoaded, fontError] = useFonts({
@@ -51,7 +56,7 @@ function RootNavigation() {
     if (fontsLoaded || fontError) {
       setIsReady(true);
       SplashScreen.hideAsync();
-      
+
       if (fontError) {
         console.warn("Fonts failed to load, falling back to system fonts.", fontError);
       }
@@ -116,9 +121,17 @@ function RootNavigation() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       {!isReady ? (
-        <View style={{ flex: 1, backgroundColor: CombinedDefaultTheme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" />
+        <View style={{
+          flex: 1,
+          backgroundColor: configuredPaperTheme.colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <Animated.View entering={FadeInUp.duration(1000)}>
+            <ActivityIndicator size="large" color={configuredPaperTheme.colors.primary} />
+          </Animated.View>
         </View>
       ) : (
         <>
@@ -131,30 +144,30 @@ function RootNavigation() {
                 </SafeAreaProvider>
               </KeyboardProvider>
             </ThemeProvider>
-            
-            {/* ... snackbar and statusbar remain below ... */}
-        
-        <Snackbar
-          visible={!!toastMessage}
-          onDismiss={() => setToastMessage(null)}
-          duration={2000}
-          style={{
-            backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.75)",
-            borderRadius: 30,
-            alignSelf: "center",
-          }}
-        >
-          <Text style={{ color: "#fff", textAlign: "center", width: "100%" }}>
-            {toastMessage}
-          </Text>
-        </Snackbar>
 
-              </PaperProvider>
-            </>
-          )}
-        </GestureHandlerRootView>
-      );
-    }
+            {/* ... snackbar and statusbar remain below ... */}
+
+            <Snackbar
+              visible={!!toastMessage}
+              onDismiss={() => setToastMessage(null)}
+              duration={2000}
+              style={{
+                backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.75)",
+                borderRadius: 30,
+                alignSelf: "center",
+              }}
+            >
+              <Text style={{ color: "#fff", textAlign: "center", width: "100%" }}>
+                {toastMessage}
+              </Text>
+            </Snackbar>
+
+          </PaperProvider>
+        </>
+      )}
+    </GestureHandlerRootView>
+  );
+}
 
 export default function Root() {
   return (

@@ -12,6 +12,7 @@ import AddGroupExpenseModal from "@/components/AddGroupExpenseModal";
 import GroupSettleUpModal from "@/components/GroupSettleUpModal";
 import GroupSettingsModal from "@/components/GroupSettingsModal";
 import { Group, getUserGroups } from "@/providers/GroupProvider";
+import { formatIdentity } from "@/utils/formatUtils";
 import AnimatedFAB from "@/components/AnimatedFAB";
 import * as ImagePicker from 'expo-image-picker';
 import { scanReceipt } from "@/utils/receiptScanner";
@@ -368,7 +369,7 @@ export default function GroupDetailScreen() {
                 return (
                   <List.Item
                     key={member.email}
-                    title={member.email === user?.email ? "You" : member.name}
+                    title={member.email === user?.email ? "You" : (member.name || formatIdentity(member.email))}
                     description={balance === 0 ? "Settled up" : (balance > 0 ? `owed ${currencySymbol}${balance.toFixed(2)}` : `owes ${currencySymbol}${Math.abs(balance).toFixed(2)}`)}
                     left={() => <Avatar.Text size={36} label={member.name.substring(0, 2).toUpperCase()} style={{ alignSelf: 'center', marginLeft: 16 }} />}
                     titleStyle={{ fontWeight: 'bold' }}

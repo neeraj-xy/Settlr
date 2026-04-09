@@ -5,6 +5,7 @@ import { useCurrencyContext } from "@/context/CurrencyContext";
 import { SplitDocument } from "@/providers/SplitProvider";
 import { Friend } from "@/providers/FriendProvider";
 import SplitDetailModal from "./SplitDetailModal";
+import { formatIdentity } from "@/utils/formatUtils";
 
 interface ActivityFeedProps {
   splits: SplitDocument[];
@@ -69,8 +70,7 @@ export default function ActivityFeed({
         return false;
       });
       if (f) return f.name.split(" ")[0]; // Just first names for brevity
-      if (p.startsWith("email:")) return p.split(":")[1].split("@")[0]; // Fallback to email handle
-      return "Someone";
+      return formatIdentity(p).split("@")[0]; // Fallback to formatted identity
     });
 
     let friendDisplayName = "Someone";

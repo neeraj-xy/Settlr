@@ -5,6 +5,7 @@ import { useTheme, Button, Text, Avatar, IconButton, TextInput, ActivityIndicato
 import ScreenWrapper from "@/components/ScreenWrapper";
 import ThemeToggle from "@/components/ThemeToggle";
 import CurrencyToggle from "@/components/CurrencyToggle";
+import InviteFriendsModal from "@/components/InviteFriendsModal";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { updateProfile } from "firebase/auth";
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [tempName, setTempName] = useState("");
   const [isSignOutVisible, setIsSignOutVisible] = useState(false);
+  const [isInviteVisible, setIsInviteVisible] = useState(false);
 
   // Sync tempName when profile/user loads
   useEffect(() => {
@@ -171,9 +173,17 @@ export default function ProfileScreen() {
       </View>
 
       {/* Preferences Section */}
-      {/* <View style={styles.sectionHeader}>
-        <Text variant="titleLarge" style={{ fontWeight: 'bold', color: theme.colors.onBackground }}>Preferences</Text>
-      </View> */}
+      <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer }]}>
+        <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>SOCIAL</Text>
+        <List.Item
+          title="Invite Friends"
+          description="Build your splitting circle"
+          left={props => <List.Icon {...props} icon="account-plus-outline" color={theme.colors.onPrimaryContainer} />}
+          right={props => <List.Icon {...props} icon="chevron-right" color={theme.colors.onPrimaryContainer} />}
+          onPress={() => setIsInviteVisible(true)}
+          style={{ paddingHorizontal: 0, borderRadius: 16 }}
+        />
+      </View>
 
       <View style={[styles.mainCard, { backgroundColor: theme.colors.primaryContainer }]}>
         <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer, letterSpacing: 1.0, opacity: 0.7 }}>APPEARANCE</Text>
@@ -198,6 +208,13 @@ export default function ProfileScreen() {
           style={{ paddingHorizontal: 16, borderRadius: 28 }}
         />
       </View>
+
+      {/* Invitations Modal */}
+      <InviteFriendsModal
+        visible={isInviteVisible}
+        onDismiss={() => setIsInviteVisible(false)}
+        currentUser={{ name: activeDisplayName }}
+      />
 
       {/* Sign Out Confirmation Dialog */}
       <Portal>

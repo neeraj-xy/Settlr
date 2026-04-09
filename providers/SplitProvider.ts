@@ -111,6 +111,7 @@ export async function createGroupSplit(creatorId: string, data: GroupSplitData):
       batch.update(groupRef, {
         [`balances.${memberEmailKey}`]: increment(-amount),
         [`grossBalances.${memberEmailKey}.owe`]: increment(amount),
+        lastUpdated: serverTimestamp(),
       });
 
       // Update the 1-on-1 friendship ledger to reflect aggregate debt

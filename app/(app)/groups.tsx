@@ -12,6 +12,7 @@ import { Friend, getFriendships, normalizeEmail } from "@/providers/FriendProvid
 import { useCurrencyContext } from "@/context/CurrencyContext";
 import { getUserGroups, Group } from "@/providers/GroupProvider";
 import { router } from "expo-router";
+import { formatIdentity } from "@/utils/formatUtils";
 
 export default function GroupsScreen() {
   const theme = useTheme();
@@ -95,7 +96,7 @@ export default function GroupsScreen() {
                     description={
                       <View>
                         <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-                          {friend.email || "Offline Tracked Profile"}
+                          {formatIdentity(friend.email)}
                         </Text>
                       </View>
                     }

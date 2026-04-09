@@ -37,7 +37,8 @@ export interface Group {
 export async function createGroup(
   name: string,
   members: GroupMember[],
-  creatorId: string
+  creatorId: string,
+  creatorName?: string
 ): Promise<string> {
   const groupRef = doc(collection(db, "groups"));
   
