@@ -3,6 +3,7 @@ import { AppThemeProvider, useThemeContext } from "@/context/ThemeContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Slot, SplashScreen } from "expo-router";
+import Head from "expo-router/head";
 import { View, ActivityIndicator } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
@@ -139,6 +140,13 @@ function RootNavigation() {
             <ThemeProvider value={configuredNavigationTheme}>
               <KeyboardProvider>
                 <SafeAreaProvider style={{ flex: 1 }}>
+                  <Head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+                    <meta name="apple-mobile-web-app-capable" content="yes" />
+                    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+                    <link rel="apple-touch-icon" href="/icon.png" />
+                    <meta name="theme-color" content={configuredPaperTheme.colors.background} />
+                  </Head>
                   <Slot />
                   <GlobalThemeToggle />
                 </SafeAreaProvider>
