@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { View, StyleSheet, useWindowDimensions, ScrollView, Platform } from "react-native";
 import { Text, Button, useTheme, Card, Avatar } from "react-native-paper";
-import { Link, router, Redirect } from "expo-router";
+import { Link, router, Redirect, Slot } from "expo-router";
 import { useSession } from "@/context";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import Animated, {
@@ -33,11 +33,9 @@ export default function LandingPage() {
     transform: [{ translateY: translateY.value }],
   }));
 
-  useEffect(() => {
-    if (user && !isLoading) {
-      router.replace("/(app)/dashboard");
-    }
-  }, [user, isLoading]);
+  if (user && !isLoading) {
+    return <Redirect href="/(app)/dashboard" />;
+  }
 
   if (isLoading) {
     return (
