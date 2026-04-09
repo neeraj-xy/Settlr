@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "settlr-d5d21",
     "public": "dist",
     "ignore": [
       "firebase.json",
