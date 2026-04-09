@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, Platform } from "react-native";
 import { useTheme, Text, Avatar, ActivityIndicator, List, Divider, Button, IconButton, Portal } from "react-native-paper";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
 import ScreenWrapper from "@/components/ScreenWrapper";
@@ -200,18 +200,20 @@ export default function GroupsScreen() {
                       )}
                       right={props => (
                         <View style={{ justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
-                          {/* <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                            <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>YOUR BALANCE</Text>
-                            <Text
-                              variant="titleMedium"
-                              style={{
-                                color: myBalance < 0 ? theme.colors.error : (myBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
-                                fontWeight: 'bold',
-                              }}
-                            >
-                              {currencySymbol}{Math.abs(myBalance).toFixed(2)}
-                            </Text>
-                          </View> */}
+                          {(Platform.OS === "web" || Platform.OS === "windows" || Platform.OS === "macos") && (
+                            <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                              <Text variant="labelSmall" style={{ color: theme.colors.outline, letterSpacing: 0.5 }}>YOUR BALANCE</Text>
+                              <Text
+                                variant="titleMedium"
+                                style={{
+                                  color: myBalance < 0 ? theme.colors.error : (myBalance > 0 ? theme.colors.primary : theme.colors.onSurface),
+                                  fontWeight: 'bold',
+                                }}
+                              >
+                                {currencySymbol}{Math.abs(myBalance).toFixed(2)}
+                              </Text>
+                            </View>
+                          )}
                           <IconButton icon="chevron-right" onPress={() => router.push(`/group/${group.id}`)} />
                         </View>
                       )}
