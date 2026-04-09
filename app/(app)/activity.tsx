@@ -31,9 +31,9 @@ export default function ActivityScreen() {
       const { friends: fetchedFriends } = await getFriendships(user.uid, user.email);
       setFriends(fetchedFriends);
 
-      const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 20);
+      const fetchedSplits = await getUserSplits(user.uid, fetchedFriends, user.email, 10);
       setSplits(fetchedSplits);
-      setHasMore(fetchedSplits.length === 20);
+      setHasMore(fetchedSplits.length === 10);
     } catch (err) {
       console.error("Failed to load global activity feed", err);
     } finally {
@@ -53,11 +53,11 @@ export default function ActivityScreen() {
     setIsFetchingMore(true);
     try {
       const lastDoc = splits[splits.length - 1];
-      const nextBatch = await getUserSplits(user.uid, friends, user.email, 20, lastDoc?.date);
-      
+      const nextBatch = await getUserSplits(user.uid, friends, user.email, 10, lastDoc?.date);
+
       if (nextBatch.length > 0) {
         setSplits(prev => [...prev, ...nextBatch]);
-        setHasMore(nextBatch.length === 20);
+        setHasMore(nextBatch.length === 10);
       } else {
         setHasMore(false);
       }
@@ -89,8 +89,8 @@ export default function ActivityScreen() {
   };
 
   return (
-    <ScreenWrapper 
-      contentContainerStyle={styles.container} 
+    <ScreenWrapper
+      contentContainerStyle={styles.container}
       scrollEnabled={Platform.OS === 'web'}
       onScroll={handleWebScroll}
     >
