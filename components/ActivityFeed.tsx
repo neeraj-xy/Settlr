@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, FlatList, ActivityIndicator } from "react-native";
+import { View, FlatList, ActivityIndicator, Platform } from "react-native";
 import { useTheme, Text, Avatar, List, Divider } from "react-native-paper";
 import { useCurrencyContext } from "@/context/CurrencyContext";
 import { SplitDocument } from "@/providers/SplitProvider";
@@ -36,7 +36,7 @@ export default function ActivityFeed({
     setModalData({ friendName, isPayer, owedAmount });
   };
 
-  const renderItem = ({ item: split, index }: { item: SplitDocument, index: number }) => {
+  const renderActivityItem = (split: SplitDocument, index: number) => {
     const isPayer = split.payerId === user?.uid;
     const isSettlement = split.type === "settlement";
     const totalAmount = Number(split.totalAmount) || 0;
@@ -149,11 +149,31 @@ export default function ActivityFeed({
     );
   };
 
+  if (Platform.OS === 'web') {
+    return (
+      <>
+        {splits.map((split, index) => renderActivityItem(split, index))}
+        {isFetchingMore && (
+           <ActivityIndicator style={{ paddingVertical: 20 }} color={theme.colors.primary} />
+        )}
+        <SplitDetailModal
+          visible={!!selectedSplit}
+          onDismiss={() => setSelectedSplit(null)}
+          split={selectedSplit}
+          friendDisplayName={modalData.friendName}
+          isPayer={modalData.isPayer}
+          owedAmount={modalData.owedAmount}
+          onDeleteSplit={onDeleteSplit}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <FlatList
         data={splits}
-        renderItem={renderItem}
+        renderItem={({ item, index }) => renderActivityItem(item, index)}
         keyExtractor={(item) => item.id}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.5}

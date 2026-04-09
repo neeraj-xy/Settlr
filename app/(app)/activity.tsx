@@ -1,4 +1,4 @@
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, Platform } from "react-native";
 import { useTheme, Text, Avatar, ActivityIndicator, List, Divider, Button, IconButton, Portal, Dialog } from "react-native-paper";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { useSession } from "@/context";
@@ -79,8 +79,21 @@ export default function ActivityScreen() {
     }
   };
 
+  const handleWebScroll = (event: any) => {
+    if (Platform.OS !== "web") return;
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 100;
+    if (isCloseToBottom && !isFetchingMore && hasMore) {
+      handleLoadMore();
+    }
+  };
+
   return (
-    <ScreenWrapper contentContainerStyle={styles.container} scrollEnabled={false}>
+    <ScreenWrapper 
+      contentContainerStyle={styles.container} 
+      scrollEnabled={Platform.OS === 'web'}
+      onScroll={handleWebScroll}
+    >
 
       {/* Universal Header Profile Row */}
       <View style={styles.header}>
@@ -139,12 +152,10 @@ export default function ActivityScreen() {
             onDeleteSplit={handleDeleteSplit}
             onLoadMore={handleLoadMore}
             isFetchingMore={isFetchingMore}
+            scrollEnabled={Platform.OS !== 'web'}
           />
         </View>
       )}
-
-
-
     </ScreenWrapper>
   );
 }

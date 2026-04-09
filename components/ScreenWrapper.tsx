@@ -77,6 +77,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    minHeight: Platform.OS === 'web' ? '100%' : undefined,
   },
   responsiveClamp: {
     width: '100%',
