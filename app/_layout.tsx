@@ -1,10 +1,10 @@
-import { SessionProvider } from "@/context";
+import { SessionProvider, useSession } from "../context";
 import { AppThemeProvider, useThemeContext } from "@/context/ThemeContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { Slot, SplashScreen } from "expo-router";
+import { Slot, SplashScreen, useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   PaperProvider,
@@ -25,7 +25,7 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
@@ -41,6 +41,8 @@ SplashScreen.preventAutoHideAsync();
 
 function RootNavigation() {
   const { colorScheme, toastMessage, setToastMessage } = useThemeContext();
+  const { user, isLoading: isSessionLoading } = useSession();
+  const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 
   const theme = useTheme();
@@ -53,16 +55,25 @@ function RootNavigation() {
   });
 
   useEffect(() => {
-    // We are ready if fonts are loaded OR if they failed (fallback to system fonts)
-    if (fontsLoaded || fontError) {
+    // Determine when the app is "logic ready"
+    const fontsDone = fontsLoaded || fontError;
+    const sessionDone = !isSessionLoading;
+
+    if (fontsDone && sessionDone) {
       setIsReady(true);
-      SplashScreen.hideAsync();
 
       if (fontError) {
         console.warn("Fonts failed to load, falling back to system fonts.", fontError);
       }
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, isSessionLoading]);
+
+  const onLayoutRootView = useCallback(async () => {
+    if (isReady) {
+      // Hide the native splash screen once the first frame is rendered.
+      await SplashScreen.hideAsync();
+    }
+  }, [isReady]);
 
   // Removed early null return to prevent blank page state during hydration
 
@@ -121,24 +132,13 @@ function RootNavigation() {
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <StatusBar
         style={colorScheme === "dark" ? "light" : "dark"}
         translucent
         backgroundColor="transparent"
       />
-      {!isReady ? (
-        <View style={{
-          flex: 1,
-          backgroundColor: configuredPaperTheme.colors.background,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}>
-          <Animated.View entering={FadeInUp.duration(1000)}>
-            <ActivityIndicator size="large" color={configuredPaperTheme.colors.primary} />
-          </Animated.View>
-        </View>
-      ) : (
+      {!isReady ? null : (
         <>
           <PaperProvider theme={configuredPaperTheme}>
             <ThemeProvider value={configuredNavigationTheme}>
@@ -157,8 +157,6 @@ function RootNavigation() {
               </KeyboardProvider>
             </ThemeProvider>
 
-            {/* ... snackbar and statusbar remain below ... */}
-
             <Snackbar
               visible={!!toastMessage}
               onDismiss={() => setToastMessage(null)}
@@ -173,7 +171,6 @@ function RootNavigation() {
                 {toastMessage}
               </Text>
             </Snackbar>
-
           </PaperProvider>
         </>
       )}

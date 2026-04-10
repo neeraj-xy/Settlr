@@ -37,6 +37,12 @@ export default function LandingPage() {
     return <Redirect href="/(app)/dashboard" />;
   }
 
+  // Silent mobile-specific redirection
+  if (Platform.OS !== 'web') {
+    if (isLoading) return null;
+    if (!user) return <Redirect href="/(auth)/login" />;
+  }
+
   if (isLoading) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.colors.background }]}>

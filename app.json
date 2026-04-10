@@ -14,7 +14,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#06402b"
+        "backgroundColor": "#ffffff"
       },
       "softwareKeyboardLayoutMode": "pan"
     },
@@ -72,9 +72,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash.png",
-          "imageWidth": 200,
+          "imageWidth": 300,
           "resizeMode": "contain",
-          "backgroundColor": "#06402b"
+          "backgroundColor": "#121212"
         }
       ],
       "expo-build-properties",
